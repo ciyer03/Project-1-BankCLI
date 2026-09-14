@@ -12,7 +12,7 @@ public interface TransactionRepository {
      * 
      * @param accountId The account ID into which to deposit the money to.
      * @param amount The amount of money to deposit into the account.
-     */    
+     */
     void deposit(String accountId, BigDecimal amount);
 
     /**

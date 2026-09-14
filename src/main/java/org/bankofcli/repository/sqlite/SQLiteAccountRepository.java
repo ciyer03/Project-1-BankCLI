@@ -24,6 +24,13 @@ public class SQLiteAccountRepository implements AccountRepository {
         this.connections = Objects.requireNonNull(connections);
     }
 
+    /**
+     * Creates a new account with the details contained in the account object.
+     * 
+     * @param account The account object containing the details to be saved.
+     * @return Returns the newly created account.
+     * @see AccountRepository#create(Account)
+     */
     @Override
     public Account create(Account account) {
         String sql = "INSERT INTO accounts (accountId, firstName, lastName, PIN) VALUES (?, ?, ?, ?)";
@@ -39,6 +46,13 @@ public class SQLiteAccountRepository implements AccountRepository {
         }
     }
 
+    /**
+     * Finds and returns, if exists, an account with the specified account ID.
+     * 
+     * @param accountId The account ID of the account to be fetched.
+     * @return The Account object if it exists. An empty object otherwise.
+     * @see AccountRepository#findById(String)
+     */
     @Override
     public Optional<Account> findById(String accountId) {
         String sql = "SELECT accountId, firstName, lastName, PIN, balance FROM accounts WHERE accountId = ?";
@@ -55,11 +69,25 @@ public class SQLiteAccountRepository implements AccountRepository {
         }
     }
 
+    /**
+     * Returns a boolean indicating if an account with the specified account ID exists.
+     * 
+     * @param accountId The account ID of the account to be searched.
+     * @return True if the account exists. False otherwise.
+     * @see AccountRepository#existsById(String)
+     */
     @Override
     public boolean existsById(String accountId) {
         return findById(accountId).isPresent();
     }
 
+    /**
+     * Returns the current balance of the account specified by the account ID.
+     * 
+     * @param accountId The account ID of the account for which the balance needs to be fetched.
+     * @return The current balance of the account.
+     * @see AccountRepository#getBalance(String)
+     */
     @Override
     public BigDecimal getBalance(String accountId) {
         try (var connection = connections.get();
