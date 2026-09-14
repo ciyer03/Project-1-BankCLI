@@ -18,7 +18,9 @@ public class InMemoryBankRepository implements AccountRepository, TransactionRep
 
     @Override
     public synchronized Account create(Account account) {
-        BankingRules.accountId(account.getAccountId());
+        if (account.getAccountId() == null || account.getAccountId().isBlank()) {
+            throw new BankingException("Account ID cannot be empty.");
+        }
         if (accounts.containsKey(account.getAccountId())) {
             throw new BankingException("Account ID is already registered.");
         }
