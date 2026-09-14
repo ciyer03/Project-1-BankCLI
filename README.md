@@ -3,35 +3,28 @@
 Run org.bankofcli.BankApplication with Java 21. Build and run the JUnit suite
 with mvn test (or the IntelliJ Maven test lifecycle).
 
-The application keeps the numbered switch menu. Register an account, then log in
-with its ID and corresponding PIN. Banking actions use the authenticated account - option 9 logs
-out so another account can log in. Option 8 exits. Invalid input returns to the
-menu, and end of input exits application.
+Choose 1 to register and enter a four-digit PIN. Registration generates an account
+ID with java.util.UUID and displays it. Save that ID: choose 2 to log in using
+the ID and PIN. Registration does not automatically log you in.
+Option 9 logs out, and option 8 exits. Invalid input returns to the menu.
 
-Rules implemented for this milestone:
-- Account IDs are case-sensitive, contain 4-32 printable ASCII characters without spaces, and require at least one uppercase letter, one lowercase letter, one number, and one special character (such as -, $, or #).
-- PIN input must contain exactly four digits and can include leading zeros (0000-9999).
-  The existing integer interface stores the numeric value and the CLI enforces the four-digit format.
-- Registration creates a zero balance and rejects duplicate IDs.
-- Deposits, withdrawals, and transfers require positive amounts in whole cents.
-- Withdrawals and transfers cannot overdraw an account.
-- Transfers require an existing and a different recipient and update both balances and
-  both transaction records.
-- History shows the latest ten records for the logged-in account, newest first.
+Accounts are saved in data/bank.db using SQLiteConnectionFactory and
+SQLiteAccountRepository. Startup creates missing tables without deleting existing
+accounts. Registration starts with a zero balance. PIN input must contain exactly
+four digits, including leading zeros (0000-9999); the database preserves that format.
+The model still uses an integer PIN. PINs are stored as plain text and input is
+visible in the console.
 
-Services accept repository interfaces through their constructors. The CLI uses
-one shared InMemoryBankRepository because the SQLite repositories are still
-stubs (will be implemented next week at the latest). Accounts, PINs, balances, 
-and history exist only for the current process. This milestone retains the model's
-integer PIN representation; persistent authentication will require replacing it 
-with password hashing before credentials are stored on disk.
-PIN input is visible in the console.
+Account registration, login, and balance lookup use SQLite. SQLite deposits,
+withdrawals, transfers, and transaction history are not implemented yet; their
+menu options currently report that the operation could not be completed.
+The in-memory transaction implementation remains available for service tests.
 
 SLF4J and Logback write application lifecycle, authentication outcomes, and
 transaction outcomes to logs/bank.log. Logs do not include PINs, entered account IDs,
-balances, or raw exception messages. Transaction records provide the account-specific 
-operation details.
+balances, or raw exception messages.
 
-JUnit covers service rules, rejected-operation state preservation, atomic transfer
-delegation, concurrent withdrawals, log privacy, and scripted CLI login/logout,
-transfer, input validation, and account isolation.
+JUnit covers UUID generation, persistent login across fresh SQLite connections,
+leading-zero PIN storage, invalid credentials, CLI registration/login/logout and
+input validation, plus the existing in-memory transaction rules.
+SQLite tests use temporary databases and do not modify data/bank.db.

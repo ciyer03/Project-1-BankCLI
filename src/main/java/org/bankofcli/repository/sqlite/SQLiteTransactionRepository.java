@@ -27,9 +27,9 @@ public class SQLiteTransactionRepository implements TransactionRepository {
     }
 
     @Override
-    public List<Transaction> findRecentByAccountId(String accountId, int limit) {
+    public List<Transaction> getRecentTransactions(String accountId, int limit) {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findRecentByAccountId'");
+        throw new UnsupportedOperationException("Unimplemented method 'getRecentTransactions'");
     }
     
 }

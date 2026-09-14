@@ -1,6 +1,7 @@
 package org.bankofcli.service.impl;
 
 import java.util.Objects;
+import java.util.UUID;
 
 import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.model.Account;
@@ -18,15 +19,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Account register(String accountId, int pin) {
-        BankingRules.accountId(accountId);
+    public Account register(int pin) {
         if (pin < 0 || pin > 9999) {
             throw new BankingException("PIN must be four digits, from 0000 to 9999.");
         }
-        if (accounts.existsById(accountId)) {
-            log.warn("Registration rejected: duplicate account");
-            throw new BankingException("Account ID is already registered.");
-        }
+        String accountId = UUID.randomUUID().toString();
         Account account = accounts.create(new Account("", "", accountId, pin));
         log.info("Registration succeeded!");
         return account;

@@ -22,33 +22,24 @@ class BankingServiceTest {
         auth = new AuthServiceImpl(repository);
         accounts = new AccountServiceImpl(repository);
         transactions = new TransactionServiceImpl(repository, repository);
-        auth.register("Alice1-", 1234);
-        auth.register("Bobby2#", 4321);
+        repository.create(new org.bankofcli.model.Account("", "", "Alice1-", 1234));
+        repository.create(new org.bankofcli.model.Account("", "", "Bobby2#", 4321));
     }
 
     @Test
-    void accountIdRequiresEveryCharacterType() {
-        for (String id : new String[] {"alice1-", "ALICE1-", "Alice-", "Alice1",
-                "Aa1 ", "Aa1- name", "Aa1-\n", "Aa1-" + "a".repeat(29)}) {
-            assertThrows(BankingException.class, () -> auth.register(id, 1234), id);
-            assertFalse(repository.existsById(id));
-        }
-    }
-
-    @Test
-    void accountIdsAcceptSpecialCharactersAndLengthBoundaries() {
-        for (String id : new String[] {"Aa1-", "Aa1$", "Aa1#", "Aa1!", "Aa1_",
-                "Aa1-" + "a".repeat(28)}) {
-            auth.register(id, 0);
-            assertEquals(id, auth.login(id, 0).getAccountId());
-        }
+    void registrationGeneratesUniqueUuidIds() {
+        var first = auth.register(1234);
+        var second = auth.register(1234);
+        assertEquals(4, java.util.UUID.fromString(first.getAccountId()).version());
+        assertNotEquals(first.getAccountId(), second.getAccountId());
+        assertEquals(first.getAccountId(), auth.login(first.getAccountId(), 1234).getAccountId());
+        assertEquals(new BigDecimal("0.00"), accounts.getBalance(first.getAccountId()));
     }
 
     @Test
     void acceptsNumericValuesOfLeadingZeroPins() {
         for (int pin : new int[] {0, 1, 123, 999}) {
-            String id = "User-" + pin;
-            auth.register(id, pin);
+            String id = auth.register(pin).getAccountId();
             assertEquals(id, auth.login(id, pin).getAccountId());
             assertThrows(BankingException.class, () -> auth.login(id, 9999));
         }
@@ -61,22 +52,10 @@ class BankingServiceTest {
     }
 
     @Test
-    void duplicateRegistrationDoesNotReplaceCredentialsOrBalance() {
-        transactions.deposit("Alice1-", new BigDecimal("10"));
-        assertThrows(BankingException.class, () -> auth.register("Alice1-", 9999));
-        assertEquals("Alice1-", auth.login("Alice1-", 1234).getAccountId());
-        assertEquals(new BigDecimal("10.00"), accounts.getBalance("Alice1-"));
-    }
-
-    @Test
-    void rejectsInvalidAccountIdsAndPins() {
-        for (String id : new String[] {null, "", "ab", "white space", "bad\naccount", "a".repeat(33)}) {
-            assertThrows(BankingException.class, () -> auth.register(id, 1234));
-        }
+    void rejectsInvalidPins() {
         for (int pin : new int[] {-1, 10000}) {
-            assertThrows(BankingException.class, () -> auth.register("Valid1-", pin));
+            assertThrows(BankingException.class, () -> auth.register(pin));
         }
-        assertFalse(repository.existsById("Valid1-"));
     }
 
     @Test

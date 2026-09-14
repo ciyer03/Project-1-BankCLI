@@ -7,7 +7,8 @@ import java.util.Scanner;
 
 import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
-import org.bankofcli.repository.memory.InMemoryBankRepository;
+import org.bankofcli.repository.sqlite.SQLiteAccountRepository;
+import org.bankofcli.repository.sqlite.SQLiteTransactionRepository;
 import org.bankofcli.service.*;
 import org.bankofcli.service.impl.*;
 import org.bankofcli.utils.SQLiteConnectionFactory;
@@ -34,7 +35,7 @@ public class BankApplication {
     public void run() {
         String accountId = null;
         out.println("Welcome to the Bank Of CLI!");
-        out.println("Accounts and transactions are stored for this run only.");
+        out.println("Accounts are saved between runs. Keep your account ID to log in.");
         log.info("Application started");
         try {
             while (true) {
@@ -58,8 +59,8 @@ public class BankApplication {
                                 out.println("Please log out before registering another account.");
                                 break;
                             }
-                            String newId = prompt("Choose Account ID: ");
-                            auth.register(newId, readPin());
+                            String newId = auth.register(readPin()).getAccountId();
+                            out.println("Your Account ID: " + newId);
                             out.println("Registration successful. Please log in.");
                             break;
                         case "2":
@@ -168,10 +169,10 @@ public class BankApplication {
     public static void main(String[] args) {
         SQLiteConnectionFactory.initializeDatabase();
 
-        InMemoryBankRepository repository = new InMemoryBankRepository();
+        SQLiteAccountRepository repository = new SQLiteAccountRepository();
         try (Scanner scanner = new Scanner(System.in)) {
             new BankApplication(new AuthServiceImpl(repository), new AccountServiceImpl(repository),
-                    new TransactionServiceImpl(repository, repository), scanner, System.out).run();
+                    new TransactionServiceImpl(repository, new SQLiteTransactionRepository()), scanner, System.out).run();
         }
     }
 }
