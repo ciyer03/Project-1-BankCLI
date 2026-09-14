@@ -6,6 +6,7 @@ import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 import org.bankofcli.exceptions.BankingException;
+import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.repository.memory.InMemoryBankRepository;
 import org.bankofcli.service.*;
 import org.bankofcli.service.impl.*;
@@ -87,7 +88,8 @@ public class BankApplication {
                             out.println("Transfer successful.");
                             break;
                         case "7":
-                            var history = transactions.getRecentTransactions(accountId);
+                            int limit = readLimit();
+                            var history = transactions.getRecentTransactions(accountId, limit);
                             if (history.isEmpty()) out.println("No transactions yet.");
                             history.forEach(out::println);
                             break;
@@ -104,6 +106,9 @@ public class BankApplication {
                     }
                 } catch (BankingException e) {
                     log.warn("Banking request rejected.");
+                    out.println(e.getMessage());
+                } catch (InsufficientBalanceException e) {
+                    log.warn("Insufficient balance for requested operation.");
                     out.println(e.getMessage());
                 } catch (RuntimeException e) {
                     if (e instanceof NoSuchElementException) throw e;
@@ -130,6 +135,14 @@ public class BankApplication {
             throw new BankingException("PIN must be four digits, from 0000 to 9999.");
         }
         return Integer.parseInt(pin);
+    }
+
+    private int readLimit() {
+        String limit = prompt("How many transactions to show: ");
+        if (!limit.matches("[1-9][0-9]*")) {
+            throw new BankingException("Enter a positive whole number for the number of transactions to show.");
+        }
+        return Integer.parseInt(limit);
     }
 
     private BigDecimal readAmount() {

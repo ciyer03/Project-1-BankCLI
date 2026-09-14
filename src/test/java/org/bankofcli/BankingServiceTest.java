@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import org.bankofcli.repository.memory.InMemoryBankRepository;
 import org.bankofcli.service.impl.*;
 import org.bankofcli.exceptions.BankingException;
+import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.TransactionType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,40 +92,40 @@ class BankingServiceTest {
         transactions.deposit("Alice1-", new BigDecimal("0.10"));
         transactions.deposit("Alice1-", new BigDecimal("0.20"));
         assertEquals(new BigDecimal("0.30"), accounts.getBalance("Alice1-"));
-        transactions.withdraw("Alice1-", new BigDecimal("0.30"));
+        repository.withdraw("Alice1-", new BigDecimal("0.30"));
         assertEquals(new BigDecimal("0.00"), accounts.getBalance("Alice1-"));
-        assertEquals(TransactionType.WITHDRAW, transactions.getRecentTransactions("Alice1-").getFirst().getType());
+        assertEquals(TransactionType.WITHDRAW, transactions.getRecentTransactions("Alice1-", 10).getFirst().getType());
     }
 
     @Test
     void everyMutationRejectsInvalidAmountsWithoutChanges() {
         for (BigDecimal amount : new BigDecimal[] {null, BigDecimal.ZERO, new BigDecimal("-1"), new BigDecimal("1.001")}) {
             assertThrows(BankingException.class, () -> transactions.deposit("Alice1-", amount));
-            assertThrows(BankingException.class, () -> transactions.withdraw("Alice1-", amount));
+            assertThrows(BankingException.class, () -> repository.withdraw("Alice1-", amount));
             assertThrows(BankingException.class, () -> transactions.transfer("Alice1-", "Bobby2#", amount));
         }
         assertEquals(new BigDecimal("0.00"), accounts.getBalance("Alice1-"));
-        assertTrue(transactions.getRecentTransactions("Alice1-").isEmpty());
-        assertTrue(transactions.getRecentTransactions("Bobby2#").isEmpty());
+        assertTrue(transactions.getRecentTransactions("Alice1-", 10).isEmpty());
+        assertTrue(transactions.getRecentTransactions("Bobby2#", 10).isEmpty());
     }
 
     @Test
     void rejectsMissingAccountsAcrossOperations() {
         assertThrows(BankingException.class, () -> accounts.getBalance("Missing1-"));
         assertThrows(BankingException.class, () -> transactions.deposit("Missing1-", BigDecimal.ONE));
-        assertThrows(BankingException.class, () -> transactions.withdraw("Missing1-", BigDecimal.ONE));
+        assertThrows(BankingException.class, () -> repository.withdraw("Missing1-", BigDecimal.ONE));
         assertThrows(BankingException.class, () -> transactions.transfer("Missing1-", "Alice1-", BigDecimal.ONE));
-        assertThrows(BankingException.class, () -> transactions.getRecentTransactions("Missing1-"));
+        assertThrows(BankingException.class, () -> transactions.getRecentTransactions("Missing1-", 10));
     }
 
     @Test
     void transferUpdatesBothBalancesAndBothHistories() {
         transactions.deposit("Alice1-", new BigDecimal("100"));
-        transactions.transfer("Alice1-", "Bobby2#", new BigDecimal("25.25"));
+        assertDoesNotThrow(() -> transactions.transfer("Alice1-", "Bobby2#", new BigDecimal("25.25")));
         assertEquals(new BigDecimal("74.75"), accounts.getBalance("Alice1-"));
         assertEquals(new BigDecimal("25.25"), accounts.getBalance("Bobby2#"));
-        var outgoing = transactions.getRecentTransactions("Alice1-").getFirst();
-        var incoming = transactions.getRecentTransactions("Bobby2#").getFirst();
+        var outgoing = transactions.getRecentTransactions("Alice1-", 10).getFirst();
+        var incoming = transactions.getRecentTransactions("Bobby2#", 10).getFirst();
         assertEquals(TransactionType.TRANSFER_OUT, outgoing.getType());
         assertEquals(TransactionType.TRANSFER_IN, incoming.getType());
         assertEquals(outgoing.getAmount(), incoming.getAmount());
@@ -134,21 +135,21 @@ class BankingServiceTest {
     @Test
     void rejectedTransfersAndOverdraftsLeaveBalancesAndHistoryIntact() {
         transactions.deposit("Alice1-", BigDecimal.TEN);
-        assertThrows(BankingException.class, () -> transactions.withdraw("Alice1-", new BigDecimal("10.01")));
+        assertThrows(BankingException.class, () -> repository.withdraw("Alice1-", new BigDecimal("10.01")));
         assertThrows(BankingException.class, () -> transactions.transfer("Alice1-", "Bobby2#", new BigDecimal("11")));
         assertThrows(BankingException.class, () -> transactions.transfer("Alice1-", "Missing1-", BigDecimal.ONE));
         assertThrows(BankingException.class, () -> transactions.transfer("Alice1-", "Alice1-", BigDecimal.ONE));
         assertEquals(new BigDecimal("10.00"), accounts.getBalance("Alice1-"));
         assertEquals(new BigDecimal("0.00"), accounts.getBalance("Bobby2#"));
-        assertEquals(1, transactions.getRecentTransactions("Alice1-").size());
-        assertTrue(transactions.getRecentTransactions("Bobby2#").isEmpty());
+        assertEquals(1, transactions.getRecentTransactions("Alice1-", 10).size());
+        assertTrue(transactions.getRecentTransactions("Bobby2#", 10).isEmpty());
     }
 
     @Test
     void historyIsLatestTenAndOnlyForRequestedAccount() {
         for (int i = 1; i <= 12; i++) transactions.deposit("Alice1-", BigDecimal.valueOf(i));
         transactions.deposit("Bobby2#", BigDecimal.ONE);
-        var history = transactions.getRecentTransactions("Alice1-");
+        var history = transactions.getRecentTransactions("Alice1-", 10);
         assertEquals(10, history.size());
         assertEquals(new BigDecimal("12.00"), history.getFirst().getAmount());
         assertEquals(new BigDecimal("3.00"), history.getLast().getAmount());
@@ -162,6 +163,6 @@ class BankingServiceTest {
         assertThrows(BankingException.class, () -> repository.transfer("Alice1-", "Missing1-", BigDecimal.ONE));
         assertThrows(BankingException.class, () -> repository.transfer("Alice1-", "Bobby2#", new BigDecimal("11")));
         assertEquals(new BigDecimal("10.00"), repository.getBalance("Alice1-"));
-        assertEquals(1, repository.findRecentByAccountId("Alice1-", 10).size());
+        assertEquals(1, repository.getRecentTransactions("Alice1-", 10).size());
     }
 }

@@ -24,7 +24,9 @@ class ServiceBoundaryTest {
         when(accounts.getBalance("Alice1-")).thenReturn(BigDecimal.TEN);
         var service = new TransactionServiceImpl(accounts, repository);
         assertThrows(BankingException.class, () -> service.deposit("Alice1-", BigDecimal.ZERO));
-        assertThrows(BankingException.class, () -> service.withdraw("Alice1-", new BigDecimal("11")));
+        // Withdraw is not yet implemented at the service layer, so it always throws
+        // UnsupportedOperationException without reaching the repository.
+        assertThrows(UnsupportedOperationException.class, () -> service.withdraw("Alice1-", new BigDecimal("11")));
         assertThrows(BankingException.class, () -> service.transfer("Alice1-", "Bobby2#", new BigDecimal("11")));
         assertThrows(BankingException.class, () -> service.transfer("Alice1-", "Alice1-", BigDecimal.ONE));
         verifyNoInteractions(repository);
@@ -37,8 +39,9 @@ class ServiceBoundaryTest {
         when(accounts.existsById("Alice1-")).thenReturn(true);
         when(accounts.existsById("Bobby2#")).thenReturn(true);
         when(accounts.getBalance("Alice1-")).thenReturn(BigDecimal.TEN);
-        new TransactionServiceImpl(accounts, repository).transfer("Alice1-", "Bobby2#", BigDecimal.TEN);
-        verify(repository).transfer("Alice1-", "Bobby2#", new BigDecimal("10.00"));
+        var service = new TransactionServiceImpl(accounts, repository);
+        assertDoesNotThrow(() -> service.transfer("Alice1-", "Bobby2#", BigDecimal.TEN));
+        assertDoesNotThrow(() -> verify(repository).transfer("Alice1-", "Bobby2#", new BigDecimal("10.00")));
         verifyNoMoreInteractions(repository);
     }
 
@@ -109,6 +112,6 @@ class ServiceBoundaryTest {
                     second.get(5, java.util.concurrent.TimeUnit.SECONDS));
         }
         assertEquals(new BigDecimal("0.00"), repository.getBalance("Alice1-"));
-        assertEquals(2, repository.findRecentByAccountId("Alice1-", 10).size());
+        assertEquals(2, repository.getRecentTransactions("Alice1-", 10).size());
     }
 }

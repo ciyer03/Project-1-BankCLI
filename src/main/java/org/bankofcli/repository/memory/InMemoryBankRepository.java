@@ -91,7 +91,7 @@ public class InMemoryBankRepository implements AccountRepository, TransactionRep
     }
 
     @Override
-    public synchronized List<Transaction> findRecentByAccountId(String accountId, int limit) {
+    public synchronized List<Transaction> getRecentTransactions(String accountId, int limit) {
         BankingRules.existingAccount(this, accountId);
         if (limit < 0) throw new IllegalArgumentException("Limit must not be negative.");
         return history.reversed().stream().filter(t -> t.getAccountId().equals(accountId))

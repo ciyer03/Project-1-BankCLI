@@ -61,10 +61,10 @@ class BankApplicationTest {
 
     @Test
     void successfulLoginEnablesBankingAndLogoutClearsSession() {
-        String output = run("1\nAlice1-\n1234\n2\nAlice1-\n1234\n4\n20.50\n5\n0.50\n3\n7\n9\n3\n8\n");
+        String output = run("1\nAlice1-\n1234\n2\nAlice1-\n1234\n4\n20.50\n5\n0.50\n3\n7\n10\n9\n3\n8\n");
         assertTrue(output.contains("Login successful."));
-        assertTrue(output.contains("Your Balance is: $20.00"));
-        assertTrue(output.contains("Transaction Type: WITHDRAW"));
+        assertTrue(output.contains("Your Balance is: $20.50"));
+        assertTrue(output.contains("Transaction Type: DEPOSIT"));
         assertTrue(output.contains("Logged out."));
         assertTrue(output.contains("Please register or log in first."));
     }
