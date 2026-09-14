@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 
+import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.Transaction;
 import org.bankofcli.repository.AccountRepository;
 import org.bankofcli.repository.TransactionRepository;
@@ -37,7 +38,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public void transfer(String sourceAccountId,
                          String destinationAccountId,
-                         BigDecimal amount) {
+                         BigDecimal amount) throws InsufficientBalanceException {
 
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(
@@ -63,8 +64,8 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public List<Transaction> getRecentTransactions(String accountId) {
+    public List<Transaction> getRecentTransactions(String accountId, int limit) {
         BankingRules.existingAccount(accounts, accountId);
-        return List.copyOf(transactions.findRecentByAccountId(accountId, 10));
+        return List.copyOf(transactions.getRecentTransactions(accountId, limit));
     }
 }
