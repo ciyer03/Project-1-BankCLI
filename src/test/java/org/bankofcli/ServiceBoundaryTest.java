@@ -74,7 +74,7 @@ class ServiceBoundaryTest {
         logger.addAppender(appender);
         try {
             var auth = new AuthServiceImpl(new InMemoryBankRepository());
-            String id = auth.register(6789).getAccountId();
+            String id = auth.register("Alice", "Smith", 6789).getAccountId();
             auth.login(id, 6789);
             assertThrows(BankingException.class, () -> auth.login(id, 9876));
             var messages = appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
