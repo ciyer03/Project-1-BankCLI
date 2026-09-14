@@ -41,7 +41,7 @@ class SQLiteAuthenticationTest {
     void registrationSurvivesFreshConnectionsAndPreservesLeadingZeroPins() throws Exception {
         var connections = database();
         for (int pin : new int[] {0, 1, 123, 999, 9999}) {
-            var account = new AuthServiceImpl(new SQLiteAccountRepository(connections)).register(pin);
+            var account = new AuthServiceImpl(new SQLiteAccountRepository(connections)).register("Alice", "Smith", pin);
             String id = account.getAccountId();
             assertEquals(4, UUID.fromString(id).version());
             // Reinitialize as on application startup, then use a new repository and connection.
@@ -68,13 +68,17 @@ class SQLiteAuthenticationTest {
         var repository = new SQLiteAccountRepository(connections);
         new BankApplication(new AuthServiceImpl(repository),
                 new org.bankofcli.service.impl.AccountServiceImpl(repository), null,
-                new java.util.Scanner("1\n0001\n8\n"), new java.io.PrintStream(output)).run();
+                new java.util.Scanner("1\nAlice\nSmith\n0001\n8\n"), new java.io.PrintStream(output)).run();
         var match = java.util.regex.Pattern.compile("Your Account ID: ([0-9a-f-]{36})")
                 .matcher(output.toString(StandardCharsets.UTF_8));
         assertTrue(match.find());
         String id = match.group(1);
         output.reset();
         var reopened = new SQLiteAccountRepository(database());
+        var saved = reopened.findById(id).orElseThrow();
+        assertEquals("Alice", saved.getFirstName());
+        assertEquals("Smith", saved.getLastName());
+        assertEquals(1, saved.getPIN());
         new BankApplication(new AuthServiceImpl(reopened),
                 new org.bankofcli.service.impl.AccountServiceImpl(reopened), null,
                 new java.util.Scanner("2\n" + id + "\n0001\n3\n9\n3\n8\n"),
@@ -90,8 +94,8 @@ class SQLiteAuthenticationTest {
     void invalidCredentialsFailAndDuplicateInsertCannotOverwriteAccount() throws Exception {
         var repository = new SQLiteAccountRepository(database());
         var auth = new AuthServiceImpl(repository);
-        var first = auth.register(1234);
-        var second = auth.register(1234);
+        var first = auth.register("Alice", "Smith", 1234);
+        var second = auth.register("Alice", "Smith", 1234);
         assertNotEquals(first.getAccountId(), second.getAccountId());
         assertThrows(IllegalStateException.class, () -> repository.create(first));
         assertEquals(first.getAccountId(), auth.login(first.getAccountId(), 1234).getAccountId());
@@ -99,7 +103,7 @@ class SQLiteAuthenticationTest {
         var missing = assertThrows(BankingException.class, () -> auth.login(UUID.randomUUID().toString(), 1234));
         assertEquals(wrong.getMessage(), missing.getMessage());
         assertThrows(BankingException.class, () -> auth.login("' OR 1=1 --", 1234));
-        assertThrows(BankingException.class, () -> auth.register(-1));
-        assertThrows(BankingException.class, () -> auth.register(10000));
+        assertThrows(BankingException.class, () -> auth.register("Alice", "Smith", -1));
+        assertThrows(BankingException.class, () -> auth.register("Alice", "Smith", 10000));
     }
 }
