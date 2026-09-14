@@ -9,14 +9,10 @@ import org.bankofcli.repository.AccountRepository;
 public final class BankingRules {
     private BankingRules() {}
 
-    public static void accountId(String id) {
-        if (id == null || !id.matches("(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[!-~]{4,32}")) {
-            throw new BankingException("Account ID must be 4-32 characters with at least one uppercase letter, one lowercase letter, one number, and one special character (such as -, $, or #), with no spaces.");
-        }
-    }
-
     public static void existingAccount(AccountRepository accounts, String id) {
-        accountId(id);
+        if (id == null || id.isBlank()) {
+            throw new BankingException("Account does not exist.");
+        }
         if (!accounts.existsById(id)) {
             throw new BankingException("Account does not exist.");
         }
