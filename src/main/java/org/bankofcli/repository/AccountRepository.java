@@ -15,10 +15,10 @@ public interface AccountRepository {
     Account create(Account account);
 
     /**
-     * Finds and returns, if exists, an account with the specified account ID. Null otherwise.
+     * Finds and returns, if exists, an account with the specified account ID.
      * 
      * @param accountId The account ID of the account to be fetched.
-     * @return The Account object if it exists. Null otherwise.
+     * @return The Account object if it exists. An empty object otherwise.
      */
     Optional<Account> findById(String accountId);
 
