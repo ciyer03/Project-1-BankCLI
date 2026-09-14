@@ -12,6 +12,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class BankApplicationTest {
     private String run(String input) {
         var repository = new InMemoryBankRepository();
+        repository.create(new org.bankofcli.model.Account("", "", "Alice1-", 1234));
+        repository.create(new org.bankofcli.model.Account("", "", "Bobby2#", 4321));
         var output = new ByteArrayOutputStream();
         new BankApplication(new AuthServiceImpl(repository), new AccountServiceImpl(repository),
                 new TransactionServiceImpl(repository, repository), new Scanner(input),
@@ -20,39 +22,32 @@ class BankApplicationTest {
     }
 
     @Test
-    void registrationExplainsAccountIdRequirementsAndAllowsRetry() {
-        String output = run("1\nalice\n0000\n1\nAlice1$\n0000\n2\nAlice1$\n0000\n3\n8\n");
-        assertTrue(output.contains("at least one uppercase letter, one lowercase letter, one number"));
-        assertTrue(output.contains("one special character"));
-        assertTrue(output.contains("Login successful."));
-        assertTrue(output.contains("Your Balance is: $0.00"));
-    }
-
-    @Test
-    void leadingZeroPinsCanRegisterAndLogin() {
+    void registrationDisplaysGeneratedUuidAndAcceptsLeadingZeroPins() {
         for (String pin : new String[] {"0000", "0001", "0123", "0999"}) {
-            String output = run("1\nAlice1-\n" + pin + "\n2\nAlice1-\n" + pin + "\n3\n8\n");
+            String output = run("1\n" + pin + "\n8\n");
             assertTrue(output.contains("Registration successful."), pin);
-            assertTrue(output.contains("Login successful."), pin);
-            assertTrue(output.contains("Your Balance is: $0.00"), pin);
+            var match = java.util.regex.Pattern.compile("Your Account ID: ([0-9a-f-]{36})").matcher(output);
+            assertTrue(match.find());
+            assertEquals(4, java.util.UUID.fromString(match.group(1)).version());
+            assertFalse(output.contains("Choose Account ID"));
         }
     }
 
     @Test
     void pinInputMustStillBeExactlyFourDigits() {
         for (String pin : new String[] {"0", "000", "00000", "-001", "00a0"}) {
-            String output = run("1\nAlice1-\n" + pin + "\n8\n");
+            String output = run("1\n" + pin + "\n8\n");
             assertTrue(output.contains("PIN must be four digits"), pin);
             assertFalse(output.contains("Registration successful."), pin);
         }
-        String output = run("1\nAlice1-\n0000\n2\nAlice1-\n0\n3\n8\n");
+        String output = run("2\nAlice1-\n0\n3\n8\n");
         assertFalse(output.contains("Login successful."));
         assertTrue(output.contains("Please register or log in first."));
     }
 
     @Test
     void registrationRequiresLoginAndWrongPinDoesNotUnlockMenu() {
-        String output = run("1\nAlice1-\n1234\n3\n2\nAlice1-\n9999\n3\n8\n");
+        String output = run("1\n1234\n3\n2\nAlice1-\n9999\n3\n8\n");
         assertTrue(output.contains("Registration successful. Please log in."));
         assertTrue(output.contains("Invalid account ID or PIN."));
         assertFalse(output.contains("Your Balance is:"));
@@ -61,7 +56,7 @@ class BankApplicationTest {
 
     @Test
     void successfulLoginEnablesBankingAndLogoutClearsSession() {
-        String output = run("1\nAlice1-\n1234\n2\nAlice1-\n1234\n4\n20.50\n5\n0.50\n3\n7\n9\n3\n8\n");
+        String output = run("2\nAlice1-\n1234\n4\n20.50\n5\n0.50\n3\n7\n9\n3\n8\n");
         assertTrue(output.contains("Login successful."));
         assertTrue(output.contains("Your Balance is: $20.00"));
         assertTrue(output.contains("Transaction Type: WITHDRAW"));
@@ -78,7 +73,7 @@ class BankApplicationTest {
 
     @Test
     void badInputIsRecoverable() {
-        String output = run("wrong\n1\nAlice1-\nabc\n1\nAlice1-\n1234\n2\nAlice1-\n1234\n4\nnope\n4\n1.001\n4\n0\n3\n8\n");
+        String output = run("wrong\n1\nabc\n2\nAlice1-\n1234\n4\nnope\n4\n1.001\n4\n0\n3\n8\n");
         assertTrue(output.contains("Invalid option."));
         assertTrue(output.contains("PIN must be four digits"));
         assertTrue(output.contains("Enter a positive amount"));
@@ -88,13 +83,13 @@ class BankApplicationTest {
 
     @Test
     void logoutAndLoginAsAnotherAccountDoesNotReusePreviousBalance() {
-        String output = run("1\nAlice1-\n1234\n2\nAlice1-\n1234\n4\n10\n9\n1\nBobby2#\n4321\n2\nBobby2#\n4321\n3\n8\n");
+        String output = run("2\nAlice1-\n1234\n4\n10\n9\n2\nBobby2#\n4321\n3\n8\n");
         assertTrue(output.contains("Your Balance is: $0.00"));
     }
 
     @Test
     void transferThroughMenuCreditsRecipient() {
-        String output = run("1\nAlice1-\n1234\n1\nBobby2#\n4321\n2\nAlice1-\n1234\n4\n10\n6\nBobby2#\n4\n9\n2\nBobby2#\n4321\n3\n8\n");
+        String output = run("2\nAlice1-\n1234\n4\n10\n6\nBobby2#\n4\n9\n2\nBobby2#\n4321\n3\n8\n");
         assertTrue(output.contains("Transfer successful."));
         assertTrue(output.contains("Your Balance is: $4.00"));
     }
