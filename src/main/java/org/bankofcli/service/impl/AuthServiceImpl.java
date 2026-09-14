@@ -19,12 +19,15 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Account register(int pin) {
+    public Account register(String firstName, String lastName, int pin) {
+        if (firstName == null || firstName.isBlank() || lastName == null || lastName.isBlank()) {
+            throw new BankingException("First and last name are required.");
+        }
         if (pin < 0 || pin > 9999) {
             throw new BankingException("PIN must be four digits, from 0000 to 9999.");
         }
         String accountId = UUID.randomUUID().toString();
-        Account account = accounts.create(new Account("", "", accountId, pin));
+        Account account = accounts.create(new Account(firstName.strip(), lastName.strip(), accountId, pin));
         log.info("Registration succeeded!");
         return account;
     }
