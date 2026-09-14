@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 
+import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.Transaction;
 import org.bankofcli.repository.AccountRepository;
@@ -13,26 +14,43 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TransactionServiceImpl implements TransactionService {
-    private static final Logger log = LoggerFactory.getLogger(TransactionServiceImpl.class);
-    private final AccountRepository accounts;
-    private final TransactionRepository transactions;
+    private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
+    private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
 
-    public TransactionServiceImpl(AccountRepository accounts, TransactionRepository transactions) {
-        this.accounts = Objects.requireNonNull(accounts);
-        this.transactions = Objects.requireNonNull(transactions);
+    public TransactionServiceImpl(AccountRepository accountRepository, TransactionRepository transactionRepository) {
+        this.accountRepository = Objects.requireNonNull(accountRepository);
+        this.transactionRepository = Objects.requireNonNull(transactionRepository);
     }
 
     @Override
     public void deposit(String accountId, BigDecimal amount) {
         amount = BankingRules.amount(amount);
-        BankingRules.existingAccount(accounts, accountId);
-        transactions.deposit(accountId, amount);
-        log.info("Deposit succeeded");
+        BankingRules.existingAccount(accountRepository, accountId);
+        transactionRepository.deposit(accountId, amount);
+        logger.info("Deposit succeeded");
     }
 
+    /**
+     * Withdraws the specified amount from the specified account ID.
+     * 
+     * @param accountId The account ID to withdraw money from.
+     * @param amount The amount of money to withdraw from the account.
+     * @throws InsufficientBalanceException If there is insufficient balance to withdraw 
+     * the requested money.
+     * @throws AccountDoesNotExistException If there the specified accountId does not exist.
+     */
     @Override
-    public void withdraw(String accountId, BigDecimal amount) {
-        throw new UnsupportedOperationException("Withdraw is not implemented yet");
+    public void withdraw(String accountId, BigDecimal amount) throws InsufficientBalanceException {
+        logger.trace("Checking whether accountId \"{}\" exists ...", accountId);
+        if (!(this.accountRepository.existsById(accountId))) {
+            logger.error("The specified account ID \"{}\" doesn't exist.", accountId);
+            throw new AccountDoesNotExistException("The specified account ID \"" + accountId + "\"" + " doesn't exist.");
+        }
+        logger.trace("accountId \"{}\" exists. Proceeding ...", accountId);
+
+        logger.trace("Calling repository withdraw() method now with account ID \"{}\" and amount ${}.", accountId, amount);
+        this.transactionRepository.withdraw(accountId, amount);
     }
 
     @Override
@@ -56,7 +74,7 @@ public class TransactionServiceImpl implements TransactionService {
                     "Source and destination accounts must be different.");
         }
 
-        transactions.transfer(
+        transactionRepository.transfer(
                 sourceAccountId,
                 destinationAccountId,
                 amount
@@ -65,7 +83,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public List<Transaction> getRecentTransactions(String accountId, int limit) {
-        BankingRules.existingAccount(accounts, accountId);
-        return List.copyOf(transactions.getRecentTransactions(accountId, limit));
+        BankingRules.existingAccount(accountRepository, accountId);
+        return List.copyOf(transactionRepository.getRecentTransactions(accountId, limit));
     }
 }
