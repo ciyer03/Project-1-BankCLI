@@ -71,9 +71,9 @@ class ServiceBoundaryTest {
         logger.addAppender(appender);
         try {
             var auth = new AuthServiceImpl(new InMemoryBankRepository());
-            auth.register("Private_user1", 6789);
-            auth.login("Private_user1", 6789);
-            assertThrows(BankingException.class, () -> auth.login("Private_user1", 9876));
+            String id = auth.register(6789).getAccountId();
+            auth.login(id, 6789);
+            assertThrows(BankingException.class, () -> auth.login(id, 9876));
             var messages = appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
             assertTrue(messages.contains("Registration succeeded!"));
             assertTrue(messages.contains("Login succeeded!"));
@@ -89,7 +89,7 @@ class ServiceBoundaryTest {
     @Test
     void simultaneousWithdrawalsCannotOverdraw() throws Exception {
         var repository = new InMemoryBankRepository();
-        new AuthServiceImpl(repository).register("Alice1-", 1234);
+        repository.create(new org.bankofcli.model.Account("", "", "Alice1-", 1234));
         repository.deposit("Alice1-", BigDecimal.TEN);
         try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
             var start = new java.util.concurrent.CountDownLatch(1);
