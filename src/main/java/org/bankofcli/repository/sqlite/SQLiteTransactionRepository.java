@@ -176,7 +176,6 @@ public class SQLiteTransactionRepository implements TransactionRepository {
             throw new IllegalStateException("Database error during transfer.", e);
         }
     }
-    }
 
     /**
      * Returns the most recent "limit" number of transactions done by the account ID.
