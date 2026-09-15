@@ -53,32 +53,65 @@ public class TransactionServiceImpl implements TransactionService {
         this.transactionRepository.withdraw(accountId, amount);
     }
 
+    /**
+     * Transfer the specified amount from sourceAccountId to destinationAccountId.
+     * 
+     * @param sourceAccountId The account from which to transfer the money from.
+     * @param destinationAccountId The account to which to transfer the money to.
+     * @param amount The amoount of money to transfer.
+     * @throws InsufficientBalanceException If there is insufficient balance in the 
+     * sourceAccountId account to transfer.
+     */
     @Override
-    public void transfer(String sourceAccountId,
-                         String destinationAccountId,
-                         BigDecimal amount) throws InsufficientBalanceException {
+    public void transfer(String sourceAccountId, String destinationAccountId, BigDecimal amount) 
+    throws InsufficientBalanceException {
 
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException(
-                    "Transfer amount must be greater than zero.");
-        }
-
+        logger.debug("Checking whether either account ID is null or blank...");
         if (sourceAccountId == null || destinationAccountId == null ||
                 sourceAccountId.isBlank() || destinationAccountId.isBlank()) {
+            logger.error("One or both of the account IDs are either blank or null.");
             throw new IllegalArgumentException(
                     "Account IDs cannot be empty.");
         }
 
+        logger.debug("Checking whether both account IDs are the same...");
         if (sourceAccountId.equals(destinationAccountId)) {
+            logger.error("Both the source and destination accounts are the same.");
             throw new IllegalArgumentException(
                     "Source and destination accounts must be different.");
         }
 
-        transactionRepository.transfer(
-                sourceAccountId,
-                destinationAccountId,
-                amount
-        );
+        logger.debug("Checking whether the amount is valid...");
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            logger.debug("Amount is either null or less than or equal to 0");
+            throw new IllegalArgumentException(
+                    "Transfer amount must be greater than zero.");
+        }
+
+        logger.debug("Checking whether source account ID \"{}\" and destination account ID \"{}\" both exist...",
+         sourceAccountId, destinationAccountId);
+        if (!(this.accountRepository.existsById(sourceAccountId)) || !(this.accountRepository.existsById(destinationAccountId))) {
+            logger.error("Either the source account ID \"{}\" or destination account ID \"{}\", or both, don't exist.",
+             sourceAccountId, destinationAccountId);
+            throw new AccountDoesNotExistException("Either the source account ID \"" + sourceAccountId + 
+            "\" or destination account ID \"" + destinationAccountId + "\", or both, don't exist.");
+        }
+
+        logger.debug("Checking whether source account ID \"{}\" has enough balance for a transfer...", sourceAccountId);
+        BigDecimal currentBalance = this.accountRepository.getBalance(sourceAccountId);
+        logger.trace("Source account ID's \"{}\" balance: ${}.", sourceAccountId, currentBalance);
+        if (currentBalance.compareTo(amount) == -1) {
+            logger.error("Source account ID \"{}\" has insufficient balance for a transfer.", sourceAccountId);
+            logger.trace("Current balance: ${}. Requested transfer amount: ${}.", currentBalance, amount);
+            throw new InsufficientBalanceException("Source account ID \"" + sourceAccountId + "\" has insufficient balance for a transfer of $" +
+                amount.setScale(2) + " to destination source ID \"" + destinationAccountId + "\".");
+        }
+        logger.debug("There is enough balance on source account ID \"{}\" for a transfer. Proceeding...", sourceAccountId);
+
+        logger.trace("Calling repository transfer() method now with source account ID \"{}\" and destination account ID \"{}\" for amount ${}...",
+            sourceAccountId, destinationAccountId, amount.setScale(2));
+        
+        this.transactionRepository.transfer(sourceAccountId, destinationAccountId, amount);
     }
 
     @Override

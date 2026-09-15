@@ -3,12 +3,14 @@ package org.bankofcli.repository.sqlite;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.time.LocalDateTime;
 
+import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.Transaction;
@@ -134,8 +136,40 @@ public class SQLiteTransactionRepository implements TransactionRepository {
     @Override
     public void transfer(String sourceAccountId, String destinationAccountId, BigDecimal amount) 
     throws InsufficientBalanceException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'transfer'");
+        String transferAmountQuery = "UPDATE accounts SET balance = CASE WHEN accountId = ? THEN balance - ? WHEN accountId = ? THEN balance + ? END WHERE accountId IN (?, ?)";
+
+        try (
+                Connection conn = SQLiteConnectionFactory.getConnection();
+                PreparedStatement psmtTransferAmount = conn.prepareStatement(transferAmountQuery);
+            ) {
+                
+            conn.setAutoCommit(false);
+
+            psmtTransferAmount.setString(1, sourceAccountId);
+            psmtTransferAmount.setBigDecimal(2, amount.setScale(2));
+            psmtTransferAmount.setString(3, destinationAccountId);
+            psmtTransferAmount.setBigDecimal(4, amount.setScale(2));
+            psmtTransferAmount.setString(5, sourceAccountId);
+            psmtTransferAmount.setString(6, destinationAccountId);
+
+            logger.debug("Attempting a transfer of ${} from source account ID \"{}\" to destination account ID \"{}\".",
+                amount.setScale(2), sourceAccountId, destinationAccountId);
+            if (psmtTransferAmount.executeUpdate() == 0) {
+                conn.rollback();
+                logger.debug("Failed to transfer ${} from source account ID \"{}\" to destination account ID \"{}\".",
+                    amount.setScale(2), sourceAccountId, destinationAccountId);
+                throw new BankingException("Failed to transfer $" + amount.setScale(2) + " from source account ID \"" + sourceAccountId +
+                 "\" to destination account ID \"" + destinationAccountId + "\".");
+            }
+
+            conn.commit();
+            logger.debug("Successfully transferred ${} from source account ID \"{}\" to destination account ID \"{}\".",
+                amount.setScale(2), sourceAccountId, destinationAccountId);
+               
+        } catch (SQLException e) {
+            logger.error("Database access error during database initialization.", e);
+            throw new IllegalStateException("Database access error during database initialization.", e);
+        }
     }
 
     /**
