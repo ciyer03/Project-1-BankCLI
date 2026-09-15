@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 
+import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.repository.sqlite.SQLiteAccountRepository;
@@ -107,7 +108,7 @@ public class BankApplication {
                         default:
                             out.println("Invalid option. Please choose an option shown in the menu.");
                     }
-                } catch (BankingException e) {
+                } catch (BankingException | AccountDoesNotExistException e) {
                     log.warn("Banking request rejected.");
                     out.println(e.getMessage());
                 } catch (InsufficientBalanceException e) {
