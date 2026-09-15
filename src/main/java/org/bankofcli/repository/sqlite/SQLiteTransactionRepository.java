@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
@@ -14,6 +15,7 @@ import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.Transaction;
+import org.bankofcli.model.TransactionType;
 import org.bankofcli.repository.TransactionRepository;
 import org.bankofcli.utils.SQLiteConnectionFactory;
 import org.slf4j.Logger;
@@ -96,9 +98,12 @@ public class SQLiteTransactionRepository implements TransactionRepository {
     @Override
     public void withdraw(String accountId, BigDecimal amount) throws InsufficientBalanceException {
         String withdrawQuery = "UPDATE accounts SET balance = balance - ? WHERE account_id = ? AND balance >= ?";
+        String transactionRecordQuery = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
+
         try (
                 Connection conn = SQLiteConnectionFactory.getConnection();
                 PreparedStatement psmt = conn.prepareStatement(withdrawQuery);
+                PreparedStatement psmtTransactionRecord = conn.prepareStatement(transactionRecordQuery);
             ) {
 
             conn.setAutoCommit(false);
@@ -108,14 +113,32 @@ public class SQLiteTransactionRepository implements TransactionRepository {
             psmt.setBigDecimal(3, amount);
             
             logger.debug("Trying to withdraw ${} from account ID {}.", amount, accountId);
+            int balanceUpdateResult = psmt.executeUpdate();
             
-            if (psmt.executeUpdate() == 0) {
+            if (balanceUpdateResult == 0) {
                 conn.rollback();
                 logger.error("Insufficient balance to withdraw requested amount ${}.", amount);
                 throw new InsufficientBalanceException("Insufficient balance to withdraw requested amount $" + amount);
             }
+
+            psmtTransactionRecord.setString(1, accountId);
+            psmtTransactionRecord.setString(2, TransactionType.WITHDRAW.toString());
+            psmtTransactionRecord.setBigDecimal(3, amount);
+            String currentDateTime = LocalDateTime.now().toString();
+            psmtTransactionRecord.setString(4, currentDateTime);
+
+            logger.debug("Trying to insert a withdraw transaction record for account ID {} for amount ${}.", accountId, amount);
+            int transactionRecordResult = psmtTransactionRecord.executeUpdate();
+            
+            if (transactionRecordResult == 0) {
+                conn.rollback();
+                logger.error("Unable to add a transaction record for account ID {} for amount ${}.", accountId, amount);
+                throw new BankingException("Unable to add a transaction record for account ID "+ accountId + " for amount $" + amount);
+            }
+
             conn.commit();
             logger.debug("Successfully withdrew ${} from account ID {}.", amount, accountId);
+            logger.debug("Successfully added a transaction record for account ID {} for amount ${} at {}.", accountId, amount, currentDateTime);
             
         } catch (SQLException e) {
             logger.error("Database access error during database initialization.", e);
