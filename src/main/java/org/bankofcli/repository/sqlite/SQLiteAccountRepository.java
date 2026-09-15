@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 
 import org.bankofcli.model.Account;
 import org.bankofcli.repository.AccountRepository;
-import org.bankofcli.exceptions.BankingException;
+import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.utils.SQLiteConnectionFactory;
 
 public class SQLiteAccountRepository implements AccountRepository {
@@ -94,7 +94,9 @@ public class SQLiteAccountRepository implements AccountRepository {
              var statement = connection.prepareStatement("SELECT balance FROM accounts WHERE accountId = ?")) {
             statement.setString(1, accountId);
             try (var result = statement.executeQuery()) {
-                if (!result.next()) throw new BankingException("Account does not exist.");
+                if (!result.next()) {
+                    throw new AccountDoesNotExistException("Account does not exist.");
+                }
                 return result.getBigDecimal("balance").setScale(2);
             }
         } catch (SQLException e) {
