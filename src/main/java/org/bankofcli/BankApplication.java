@@ -59,7 +59,9 @@ public class BankApplication {
                                 out.println("Please log out before registering another account.");
                                 break;
                             }
-                            String newId = auth.register(readPin()).getAccountId();
+                            String firstName = prompt("First name: ");
+                            String lastName = prompt("Last name: ");
+                            String newId = auth.register(firstName, lastName, readPin()).getAccountId();
                             out.println("Your Account ID: " + newId);
                             out.println("Registration successful. Please log in.");
                             break;

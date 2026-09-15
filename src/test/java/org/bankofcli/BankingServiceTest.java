@@ -27,9 +27,21 @@ class BankingServiceTest {
     }
 
     @Test
+    void registrationRequiresBothNamesAndTrimsWhitespace() {
+        for (String name : new String[] {null, "", " \t "}) {
+            assertThrows(BankingException.class, () -> auth.register(name, "Smith", 1234));
+            assertThrows(BankingException.class, () -> auth.register("Alice", name, 1234));
+        }
+        var account = auth.register("  Anne Marie  ", "  O'Neill-Smith  ", 1234);
+        var saved = repository.findById(account.getAccountId()).orElseThrow();
+        assertEquals("Anne Marie", saved.getFirstName());
+        assertEquals("O'Neill-Smith", saved.getLastName());
+    }
+
+    @Test
     void registrationGeneratesUniqueUuidIds() {
-        var first = auth.register(1234);
-        var second = auth.register(1234);
+        var first = auth.register("Alice", "Smith", 1234);
+        var second = auth.register("Alice", "Smith", 1234);
         assertEquals(4, java.util.UUID.fromString(first.getAccountId()).version());
         assertNotEquals(first.getAccountId(), second.getAccountId());
         assertEquals(first.getAccountId(), auth.login(first.getAccountId(), 1234).getAccountId());
@@ -39,7 +51,7 @@ class BankingServiceTest {
     @Test
     void acceptsNumericValuesOfLeadingZeroPins() {
         for (int pin : new int[] {0, 1, 123, 999}) {
-            String id = auth.register(pin).getAccountId();
+            String id = auth.register("Alice", "Smith", pin).getAccountId();
             assertEquals(id, auth.login(id, pin).getAccountId());
             assertThrows(BankingException.class, () -> auth.login(id, 9999));
         }
@@ -54,7 +66,7 @@ class BankingServiceTest {
     @Test
     void rejectsInvalidPins() {
         for (int pin : new int[] {-1, 10000}) {
-            assertThrows(BankingException.class, () -> auth.register(pin));
+            assertThrows(BankingException.class, () -> auth.register("Alice", "Smith", pin));
         }
     }
 
