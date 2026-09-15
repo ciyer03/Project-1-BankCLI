@@ -9,6 +9,7 @@ import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.time.LocalDateTime;
 
+import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.Transaction;
 import org.bankofcli.repository.TransactionRepository;
@@ -27,19 +28,16 @@ public class SQLiteTransactionRepository implements TransactionRepository {
      * 
      * @param accountId The account ID into which to deposit the money to.
      * @param amount The amount of money to deposit into the account.
-     * @throws BankingException If the amount is not a positive whole number of cents
-     * or the account does not exist.
+     * @throws BankingException If the amount is not a positive whole number of cents.
+     * @throws AccountDoesNotExistException If the account does not exist.
      */
     @Override
     public void deposit(String accountId, BigDecimal amount) {
-        // The service validates first, but the repository enforces the same rule so that it is
-        // safe to call directly.
         BigDecimal deposit = BankingRules.amount(amount);
 
         String selectBalance = "SELECT balance FROM accounts WHERE accountId = ?";
         String updateBalance = "UPDATE accounts SET balance = ? WHERE accountId = ?";
-        String insertTransaction =
-                "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
+        String insertTransaction = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = SQLiteConnectionFactory.getConnection()) {
             conn.setAutoCommit(false);
@@ -50,7 +48,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
                     try (ResultSet result = select.executeQuery()) {
                         if (!result.next()) {
                             logger.warn("Deposit rejected: the account does not exist.");
-                            throw new BankingException("Account does not exist.");
+                            throw new AccountDoesNotExistException("Account does not exist.");
                         }
                         balance = result.getBigDecimal("balance").setScale(2, RoundingMode.UNNECESSARY);
                     }
@@ -61,7 +59,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
                     update.setString(2, accountId);
                     if (update.executeUpdate() != 1) {
                         logger.warn("Deposit rejected: the account could not be updated.");
-                        throw new BankingException("Account does not exist.");
+                        throw new AccountDoesNotExistException("Account does not exist.");
                     }
                 }
 
