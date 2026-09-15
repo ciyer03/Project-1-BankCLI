@@ -22,9 +22,20 @@ class BankApplicationTest {
     }
 
     @Test
+    void registrationRejectsBlankNames() {
+        for (String names : new String[] {"\nSmith\n", "Alice\n   \n"}) {
+            String output = run("1\n" + names + "1234\n8\n");
+            assertTrue(output.contains("First name: "));
+            assertTrue(output.contains("Last name: "));
+            assertTrue(output.contains("First and last name are required."));
+            assertFalse(output.contains("Registration successful."));
+        }
+    }
+
+    @Test
     void registrationDisplaysGeneratedUuidAndAcceptsLeadingZeroPins() {
         for (String pin : new String[] {"0000", "0001", "0123", "0999"}) {
-            String output = run("1\n" + pin + "\n8\n");
+            String output = run("1\nAlice\nSmith\n" + pin + "\n8\n");
             assertTrue(output.contains("Registration successful."), pin);
             var match = java.util.regex.Pattern.compile("Your Account ID: ([0-9a-f-]{36})").matcher(output);
             assertTrue(match.find());
@@ -36,7 +47,7 @@ class BankApplicationTest {
     @Test
     void pinInputMustStillBeExactlyFourDigits() {
         for (String pin : new String[] {"0", "000", "00000", "-001", "00a0"}) {
-            String output = run("1\n" + pin + "\n8\n");
+            String output = run("1\nAlice\nSmith\n" + pin + "\n8\n");
             assertTrue(output.contains("PIN must be four digits"), pin);
             assertFalse(output.contains("Registration successful."), pin);
         }
@@ -47,7 +58,7 @@ class BankApplicationTest {
 
     @Test
     void registrationRequiresLoginAndWrongPinDoesNotUnlockMenu() {
-        String output = run("1\n1234\n3\n2\nAlice1-\n9999\n3\n8\n");
+        String output = run("1\nAlice\nSmith\n1234\n3\n2\nAlice1-\n9999\n3\n8\n");
         assertTrue(output.contains("Registration successful. Please log in."));
         assertTrue(output.contains("Invalid account ID or PIN."));
         assertFalse(output.contains("Your Balance is:"));
@@ -73,7 +84,7 @@ class BankApplicationTest {
 
     @Test
     void badInputIsRecoverable() {
-        String output = run("wrong\n1\nabc\n2\nAlice1-\n1234\n4\nnope\n4\n1.001\n4\n0\n3\n8\n");
+        String output = run("wrong\n1\nAlice\nSmith\nabc\n2\nAlice1-\n1234\n4\nnope\n4\n1.001\n4\n0\n3\n8\n");
         assertTrue(output.contains("Invalid option."));
         assertTrue(output.contains("PIN must be four digits"));
         assertTrue(output.contains("Enter a positive amount"));

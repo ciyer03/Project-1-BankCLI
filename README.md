@@ -3,7 +3,8 @@
 Run org.bankofcli.BankApplication with Java 21. Build and run the JUnit suite
 with mvn test (or the IntelliJ Maven test lifecycle).
 
-Choose 1 to register and enter a four-digit PIN. Registration generates an account
+Choose 1 to register and enter your first name, last name, and a four-digit PIN.
+Both names are required and saved with your account ID and PIN. Registration generates an account
 ID with java.util.UUID and displays it. Save that ID: choose 2 to log in using
 the ID and PIN. Registration does not automatically log you in.
 Option 9 logs out, and option 8 exits. Invalid input returns to the menu.
