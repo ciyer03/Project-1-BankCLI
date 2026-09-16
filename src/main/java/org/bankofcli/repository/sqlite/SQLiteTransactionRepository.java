@@ -162,7 +162,6 @@ public class SQLiteTransactionRepository implements TransactionRepository {
     public void transfer(String sourceAccountId, String destinationAccountId, BigDecimal amount) 
     throws InsufficientBalanceException {
         String transferAmountQuery = "UPDATE accounts SET balance = CASE WHEN accountId = ? THEN balance - ? WHEN accountId = ? THEN balance + ? END WHERE accountId IN (?, ?)";
-        String transactionRecordQuery = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
         
         try (
                 Connection conn = SQLiteConnectionFactory.getConnection();
