@@ -70,14 +70,24 @@ public class TransactionServiceImpl implements TransactionService {
      */
     @Override
     public void withdraw(String accountId, BigDecimal amount) throws InsufficientBalanceException {
-        logger.trace("Checking whether accountId \"{}\" exists ...", accountId);
+        logger.debug("Checking whether accountId \"{}\" exists ...", accountId);
         if (!(this.accountRepository.existsById(accountId))) {
             logger.error("The specified account ID \"{}\" doesn't exist.", accountId);
             throw new AccountDoesNotExistException("The specified account ID \"" + accountId + "\"" + " doesn't exist.");
         }
-        logger.trace("accountId \"{}\" exists. Proceeding ...", accountId);
+        logger.debug("accountId \"{}\" exists. Proceeding ...", accountId);
 
-        logger.trace("Calling repository withdraw() method now with account ID \"{}\" and amount ${}.", accountId, amount);
+        logger.debug("Checking whether there's enough balance for a withdrawal...");
+        if (this.accountRepository.getBalance(accountId).compareTo(amount) == -1) {
+            logger.error("Insufficient balance to withdraw requested amount ${}.", 
+                amount.setScale(2));
+            throw new InsufficientBalanceException("Insufficient balance to withdraw requested amount $" + 
+                amount.setScale(2));
+        }
+        logger.debug("There's enough balance. Proceeding...");
+
+        logger.trace("Calling repository withdraw() method now with account ID \"{}\" and amount ${}.", 
+            accountId, amount.setScale(2));
         this.transactionRepository.withdraw(accountId, amount);
     }
 
