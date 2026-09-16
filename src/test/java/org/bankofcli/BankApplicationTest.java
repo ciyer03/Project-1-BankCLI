@@ -99,6 +99,14 @@ class BankApplicationTest {
     }
 
     @Test
+    void depositThroughMenuUpdatesBalance() {
+        String output = run("2\nAlice1-\n1234\n4\n20.50\n4\n0.50\n3\n8\n");
+        assertTrue(output.contains("Login successful."));
+        assertEquals(2, output.split("Deposit successful.", -1).length - 1);
+        assertTrue(output.contains("Your Balance is: $21.00"));
+    }
+
+    @Test
     void transferThroughMenuCreditsRecipient() {
         String output = run("2\nAlice1-\n1234\n4\n10\n6\nBobby2#\n4\n9\n2\nBobby2#\n4321\n3\n8\n");
         assertTrue(output.contains("Transfer successful."));

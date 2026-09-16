@@ -83,6 +83,7 @@ class BankingServiceTest {
         transactions.deposit("Alice1-", new BigDecimal("0.10"));
         transactions.deposit("Alice1-", new BigDecimal("0.20"));
         assertEquals(new BigDecimal("0.30"), accounts.getBalance("Alice1-"));
+        assertEquals(TransactionType.DEPOSIT, transactions.getRecentTransactions("Alice1-", 10).getFirst().getType());
         repository.withdraw("Alice1-", new BigDecimal("0.30"));
         assertEquals(new BigDecimal("0.00"), accounts.getBalance("Alice1-"));
         assertEquals(TransactionType.WITHDRAW, transactions.getRecentTransactions("Alice1-", 10).getFirst().getType());
