@@ -1,10 +1,12 @@
 package org.bankofcli.service.impl;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
 
 import org.bankofcli.exceptions.AccountDoesNotExistException;
+import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.Transaction;
 import org.bankofcli.repository.AccountRepository;
@@ -23,12 +25,38 @@ public class TransactionServiceImpl implements TransactionService {
         this.transactionRepository = Objects.requireNonNull(transactionRepository);
     }
 
+    /**
+     * Deposits the specified amount into the specified account ID.
+     *
+     * @param accountId The account ID into which to deposit the money to.
+     * @param amount The amount of money to deposit into the account.
+     * @throws BankingException If the amount is not a positive whole number of cents.
+     * @throws AccountDoesNotExistException If the specified accountId does not exist.
+     */
     @Override
     public void deposit(String accountId, BigDecimal amount) {
-        amount = BankingRules.amount(amount);
-        BankingRules.existingAccount(accountRepository, accountId);
+        logger.trace("Checking whether accountId \"{}\" exists ...", accountId);
+        if (!accountRepository.existsById(accountId)) {
+            logger.error("The specified account ID \"{}\" doesn't exist.", accountId);
+            throw new AccountDoesNotExistException("The specified account ID \"" + accountId + "\" doesn't exist.");
+        }
+        logger.trace("accountId \"{}\" exists. Proceeding ...", accountId);
+
+        logger.trace("Validating deposit amount ...");
+        if (amount == null || amount.signum() <= 0) {
+            logger.error("Deposit amount is either null or not greater than zero.");
+            throw new BankingException("Amount must be greater than zero.");
+        }
+        try {
+            amount = amount.setScale(2, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException e) {
+            logger.error("Deposit amount contains a fraction of a cent.");
+            throw new BankingException("Amount must contain no fractions of a cent.");
+        }
+
+        logger.trace("Calling repository deposit() method now with account ID \"{}\" and amount ${}.", accountId, amount);
         transactionRepository.deposit(accountId, amount);
-        logger.info("Deposit succeeded");
+        logger.info("Deposit succeeded.");
     }
 
     /**
