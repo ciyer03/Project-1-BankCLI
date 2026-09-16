@@ -142,9 +142,29 @@ public class TransactionServiceImpl implements TransactionService {
         this.transactionRepository.transfer(sourceAccountId, destinationAccountId, amount);
     }
 
+    /**
+     * Returns the most recent "limit" number of transactions done by the account ID.
+     * 
+     * @param accountId The account ID of the account to fetch transactions of.
+     * @param limit The amount of transactions of fetch.
+     * @return A list of "limit" number of {@link Transaction} objects.
+     */
     @Override
     public List<Transaction> getRecentTransactions(String accountId, int limit) {
-        BankingRules.existingAccount(accountRepository, accountId);
-        return List.copyOf(transactionRepository.getRecentTransactions(accountId, limit));
+        logger.debug("Checking whether accountId \"{}\" exists ...", accountId);
+        if (!(this.accountRepository.existsById(accountId))) {
+            logger.error("The specified account ID \"{}\" doesn't exist.", accountId);
+            throw new AccountDoesNotExistException("The specified account ID \"" + accountId + "\"" + " doesn't exist.");
+        }
+        logger.debug("accountId \"{}\" exists. Proceeding ...", accountId);
+
+        logger.debug("Checking whether the limit is valid...");
+        if (limit <= 0) {
+            logger.error("Invalid limit: \"{}\". Limit must be greater than 0.", limit);
+            throw new BankingException("Invalid limit: \"" + limit + "\". Limit must be greater than 0.");
+        }
+        logger.debug("The limit is valid. Proceeding...");
+
+        return this.transactionRepository.getRecentTransactions(accountId, limit);
     }
 }

@@ -6,10 +6,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.math.RoundingMode;
-import java.sql.ResultSet;
-import java.time.LocalDateTime;
 
 import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.exceptions.AccountDoesNotExistException;
@@ -20,8 +19,6 @@ import org.bankofcli.repository.TransactionRepository;
 import org.bankofcli.utils.SQLiteConnectionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.bankofcli.exceptions.BankingException;
-import org.bankofcli.model.TransactionType;
 import org.bankofcli.service.impl.BankingRules;
 
 public class SQLiteTransactionRepository implements TransactionRepository {
@@ -204,8 +201,48 @@ public class SQLiteTransactionRepository implements TransactionRepository {
      */
     @Override
     public List<Transaction> getRecentTransactions(String accountId, int limit) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getRecentTransactions'");
+        String fetchTransactions = "SELECT id, type, amount, timestamp FROM transactions WHERE accountId = ? ORDER BY id DESC LIMIT ?";
+        List<Transaction> recentTransactions = new ArrayList<>(limit);
+
+        try (
+                Connection conn = SQLiteConnectionFactory.getConnection();
+                PreparedStatement psmt = conn.prepareStatement(fetchTransactions);
+            ) {
+
+            psmt.setString(1, accountId);
+            psmt.setInt(2, limit);
+
+            logger.debug("Fetching the {} most recent transactions for account ID: \"{}\"...", limit, accountId);
+            ResultSet rs = psmt.executeQuery();
+            
+            logger.debug("Adding transactions found to an ArrayList...");
+            while (rs.next()) {
+                long id = rs.getLong("id");
+                logger.trace("Fetched transaction ID: {}.", id);
+
+                TransactionType type = TransactionType.valueOf(rs.getString("type"));
+                logger.trace("Fetched transaction type: {}", type.toString());
+
+                BigDecimal amount = rs.getBigDecimal("amount");
+                logger.trace("Fetched amount: ${}", amount);
+
+                LocalDateTime timestamp = LocalDateTime.parse(rs.getString("timestamp"));
+                logger.trace("Fetched timestamp: {}", timestamp.toString());
+
+                Transaction tr = new Transaction(id, accountId, type, amount, timestamp);
+                logger.trace("Created transaction object: {}", tr.toString());
+                
+                recentTransactions.add(tr);
+                logger.trace("Added transaction: {}", tr.toString());
+            }
+            logger.debug("Successfully fetched recent transactions.");
+            logger.debug("Number of transactions added: {}", recentTransactions.size());
+
+        } catch (SQLException e) {
+            logger.error("Database access error during database initialization.", e);
+            throw new IllegalStateException("Database access error during database initialization.", e);
+        }
+
+        return recentTransactions;
     }
-    
 }
