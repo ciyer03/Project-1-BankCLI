@@ -8,6 +8,8 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
 import java.math.RoundingMode;
 
 import org.bankofcli.exceptions.BankingException;
@@ -23,6 +25,15 @@ import org.bankofcli.service.impl.BankingRules;
 
 public class SQLiteTransactionRepository implements TransactionRepository {
     private static final Logger logger = LoggerFactory.getLogger(SQLiteTransactionRepository.class);
+    private final Supplier<Connection> connections;
+
+    public SQLiteTransactionRepository() {
+        this(SQLiteConnectionFactory::getConnection);
+    }
+
+    public SQLiteTransactionRepository(Supplier<Connection> connections) {
+        this.connections = Objects.requireNonNull(connections);
+    }
 
     /**
      * Deposits the specified amount into the specified account ID.
@@ -40,7 +51,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
         String updateBalance = "UPDATE accounts SET balance = ? WHERE accountId = ?";
         String insertTransaction = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = SQLiteConnectionFactory.getConnection()) {
+        try (Connection conn = connections.get()) {
             conn.setAutoCommit(false);
             try {
                 BigDecimal balance;
@@ -93,11 +104,11 @@ public class SQLiteTransactionRepository implements TransactionRepository {
      */
     @Override
     public void withdraw(String accountId, BigDecimal amount) {
-        String withdrawQuery = "UPDATE accounts SET balance = balance - ? WHERE account_id = ?";
+        String withdrawQuery = "UPDATE accounts SET balance = balance - ? WHERE accountId = ?";
         String transactionRecordQuery = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
 
         try (
-                Connection conn = SQLiteConnectionFactory.getConnection();
+                Connection conn = connections.get();
                 PreparedStatement psmt = conn.prepareStatement(withdrawQuery);
                 PreparedStatement psmtTransactionRecord = conn.prepareStatement(transactionRecordQuery);
             ) {
@@ -165,7 +176,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
         String transferAmountQuery = "UPDATE accounts SET balance = CASE WHEN accountId = ? THEN balance - ? WHEN accountId = ? THEN balance + ? END WHERE accountId IN (?, ?)";
         
         try (
-                Connection conn = SQLiteConnectionFactory.getConnection();
+                Connection conn = connections.get();
                 PreparedStatement psmtTransferAmount = conn.prepareStatement(transferAmountQuery);
             ) {
                 
@@ -211,7 +222,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
         List<Transaction> recentTransactions = new ArrayList<>(limit);
 
         try (
-                Connection conn = SQLiteConnectionFactory.getConnection();
+                Connection conn = connections.get();
                 PreparedStatement psmt = conn.prepareStatement(fetchTransactions);
             ) {
 
