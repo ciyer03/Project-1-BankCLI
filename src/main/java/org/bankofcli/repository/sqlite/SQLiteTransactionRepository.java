@@ -117,7 +117,6 @@ public class SQLiteTransactionRepository implements TransactionRepository {
 
             psmt.setBigDecimal(1, amount);
             psmt.setString(2, accountId);
-            psmt.setBigDecimal(3, amount);
 
             logger.debug("Attempting to withdraw ${} from account ID \"{}\"...",
                 amount.setScale(2), accountId);
@@ -240,7 +239,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
                 TransactionType type = TransactionType.valueOf(rs.getString("type"));
                 logger.trace("Fetched transaction type: {}", type.toString());
 
-                BigDecimal amount = rs.getBigDecimal("amount");
+                BigDecimal amount = rs.getBigDecimal("amount").setScale(2, RoundingMode.UNNECESSARY);
                 logger.trace("Fetched amount: ${}", amount);
 
                 LocalDateTime timestamp = LocalDateTime.parse(rs.getString("timestamp"));
