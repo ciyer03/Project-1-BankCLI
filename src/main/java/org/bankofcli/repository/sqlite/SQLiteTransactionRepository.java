@@ -173,12 +173,14 @@ public class SQLiteTransactionRepository implements TransactionRepository {
     public void transfer(String sourceAccountId, String destinationAccountId, BigDecimal amount) 
     throws InsufficientBalanceException {
         String transferAmountQuery = "UPDATE accounts SET balance = CASE WHEN accountId = ? THEN balance - ? WHEN accountId = ? THEN balance + ? END WHERE accountId IN (?, ?)";
-        
+        String insertTransaction = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
+
         try (
                 Connection conn = connections.get();
                 PreparedStatement psmtTransferAmount = conn.prepareStatement(transferAmountQuery);
+                PreparedStatement psmtTransactionRecord = conn.prepareStatement(insertTransaction);
             ) {
-                
+
             conn.setAutoCommit(false);
 
             psmtTransferAmount.setString(1, sourceAccountId);
@@ -196,6 +198,31 @@ public class SQLiteTransactionRepository implements TransactionRepository {
                     amount.setScale(2), sourceAccountId, destinationAccountId);
                 throw new BankingException("Failed to transfer $" + amount.setScale(2) + " from source account ID \"" + sourceAccountId +
                  "\" to destination account ID \"" + destinationAccountId + "\".");
+            }
+
+            String currentDateTime = LocalDateTime.now().toString();
+            psmtTransactionRecord.setString(1, sourceAccountId);
+            psmtTransactionRecord.setString(2, TransactionType.TRANSFER_OUT.name());
+            psmtTransactionRecord.setBigDecimal(3, amount.setScale(2));
+            psmtTransactionRecord.setString(4, currentDateTime);
+            if (psmtTransactionRecord.executeUpdate() == 0) {
+                conn.rollback();
+                logger.error("Unable to add a TRANSFER_OUT transaction record for account ID {} for amount ${}.",
+                    sourceAccountId, amount.setScale(2));
+                throw new BankingException("Unable to add a transaction record for account ID " +
+                    sourceAccountId + " for amount $" + amount.setScale(2));
+            }
+
+            psmtTransactionRecord.setString(1, destinationAccountId);
+            psmtTransactionRecord.setString(2, TransactionType.TRANSFER_IN.name());
+            psmtTransactionRecord.setBigDecimal(3, amount.setScale(2));
+            psmtTransactionRecord.setString(4, currentDateTime);
+            if (psmtTransactionRecord.executeUpdate() == 0) {
+                conn.rollback();
+                logger.error("Unable to add a TRANSFER_IN transaction record for account ID {} for amount ${}.",
+                    destinationAccountId, amount.setScale(2));
+                throw new BankingException("Unable to add a transaction record for account ID " +
+                    destinationAccountId + " for amount $" + amount.setScale(2));
             }
 
             conn.commit();
