@@ -10,6 +10,8 @@ import ch.qos.logback.core.read.ListAppender;
 import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.model.Account;
 import org.bankofcli.repository.memory.InMemoryBankRepository;
+import org.bankofcli.service.AccountService;
+import org.bankofcli.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -17,8 +19,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AuthServiceImplTest {
     private InMemoryBankRepository repository;
-    private AuthServiceImpl auth;
-    private AccountServiceImpl accounts;
+    private AuthService auth;
+    private AccountService accounts;
 
     @BeforeEach
     void setup() {
@@ -88,7 +90,7 @@ class AuthServiceImplTest {
         appender.start();
         logger.addAppender(appender);
         try {
-            AuthServiceImpl isolatedAuth = new AuthServiceImpl(new InMemoryBankRepository());
+            AuthService isolatedAuth = new AuthServiceImpl(new InMemoryBankRepository());
             String id = isolatedAuth.register("Alice", "Smith", 6789).getAccountId();
             isolatedAuth.login(id, 6789);
             assertThrows(BankingException.class, () -> isolatedAuth.login(id, 9876));

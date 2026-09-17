@@ -16,6 +16,8 @@ import org.bankofcli.model.TransactionType;
 import org.bankofcli.repository.AccountRepository;
 import org.bankofcli.repository.TransactionRepository;
 import org.bankofcli.repository.memory.InMemoryBankRepository;
+import org.bankofcli.service.AccountService;
+import org.bankofcli.service.TransactionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -24,8 +26,8 @@ import static org.mockito.Mockito.*;
 
 class TransactionServiceImplTest {
     private InMemoryBankRepository repository;
-    private AccountServiceImpl accounts;
-    private TransactionServiceImpl transactions;
+    private AccountService accounts;
+    private TransactionService transactions;
 
     @BeforeEach
     void setup() {
@@ -71,7 +73,7 @@ class TransactionServiceImplTest {
         when(mockedAccounts.existsById("Alice1-")).thenReturn(true);
         when(mockedAccounts.existsById("Bobby2#")).thenReturn(true);
         when(mockedAccounts.getBalance("Alice1-")).thenReturn(BigDecimal.TEN);
-        TransactionServiceImpl service = new TransactionServiceImpl(mockedAccounts, mockedRepository);
+        TransactionService service = new TransactionServiceImpl(mockedAccounts, mockedRepository);
         assertThrows(BankingException.class, () -> service.deposit("Alice1-", BigDecimal.ZERO));
         assertThrows(InsufficientBalanceException.class, () -> service.withdraw("Alice1-", new BigDecimal("11")));
         assertThrows(InsufficientBalanceException.class, () -> service.transfer("Alice1-", "Bobby2#", new BigDecimal("11")));
@@ -86,7 +88,7 @@ class TransactionServiceImplTest {
         when(mockedAccounts.existsById("Alice1-")).thenReturn(true);
         when(mockedAccounts.existsById("Bobby2#")).thenReturn(true);
         when(mockedAccounts.getBalance("Alice1-")).thenReturn(BigDecimal.TEN);
-        TransactionServiceImpl service = new TransactionServiceImpl(mockedAccounts, mockedRepository);
+        TransactionService service = new TransactionServiceImpl(mockedAccounts, mockedRepository);
         assertDoesNotThrow(() -> service.transfer("Alice1-", "Bobby2#", BigDecimal.TEN));
         assertDoesNotThrow(() -> verify(mockedRepository).transfer("Alice1-", "Bobby2#", new BigDecimal("10.00")));
         verifyNoMoreInteractions(mockedRepository);

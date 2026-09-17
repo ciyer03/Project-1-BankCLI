@@ -5,14 +5,16 @@ import java.math.BigDecimal;
 import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.model.Account;
 import org.bankofcli.repository.memory.InMemoryBankRepository;
+import org.bankofcli.service.AccountService;
+import org.bankofcli.service.TransactionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AccountServiceImplTest {
     private InMemoryBankRepository repository;
-    private AccountServiceImpl accounts;
-    private TransactionServiceImpl transactions;
+    private AccountService accounts;
+    private TransactionService transactions;
 
     @BeforeEach
     void setup() {

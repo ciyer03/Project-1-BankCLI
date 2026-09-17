@@ -8,6 +8,8 @@ import org.bankofcli.model.Account;
 import org.bankofcli.repository.AccountRepository;
 import org.bankofcli.repository.sqlite.SQLiteAccountRepository;
 import org.bankofcli.repository.sqlite.SqliteTestDatabase;
+import org.bankofcli.service.AccountService;
+import org.bankofcli.service.AuthService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,8 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AuthServiceImplSqliteTest {
     private SqliteTestDatabase database;
-    private AuthServiceImpl auth;
-    private AccountServiceImpl accounts;
+    private AuthService auth;
+    private AccountService accounts;
 
     @BeforeEach
     void setup() {
