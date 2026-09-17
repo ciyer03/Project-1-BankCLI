@@ -1,6 +1,7 @@
 package org.bankofcli.service.impl;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import org.bankofcli.exceptions.BankingException;
 import org.bankofcli.model.Account;
@@ -20,6 +21,7 @@ class AccountServiceImplSqliteTest {
     private SqliteTestDatabase database;
     private AccountService accounts;
     private TransactionService transactions;
+    private String aliceId;
 
     @BeforeEach
     void setup() {
@@ -28,7 +30,8 @@ class AccountServiceImplSqliteTest {
         TransactionRepository transactionRepository = new SQLiteTransactionRepository(database.connections);
         accounts = new AccountServiceImpl(accountRepository);
         transactions = new TransactionServiceImpl(accountRepository, transactionRepository);
-        accountRepository.create(new Account("Alice", "Smith", "Alice1-", 1234));
+        aliceId = UUID.randomUUID().toString();
+        accountRepository.create(new Account("Alice", "Smith", aliceId, 1234));
     }
 
     @AfterEach
@@ -38,14 +41,14 @@ class AccountServiceImplSqliteTest {
 
     @Test
     void getBalanceReturnsZeroForNewAccountAndReflectsDeposit() {
-        assertEquals(new BigDecimal("0.00"), accounts.getBalance("Alice1-"));
-        transactions.deposit("Alice1-", new BigDecimal("15.50"));
-        assertEquals(new BigDecimal("15.50"), accounts.getBalance("Alice1-"));
+        assertEquals(new BigDecimal("0.00"), accounts.getBalance(aliceId));
+        transactions.deposit(aliceId, new BigDecimal("15.50"));
+        assertEquals(new BigDecimal("15.50"), accounts.getBalance(aliceId));
     }
 
     @Test
     void getBalanceRejectsMissingOrBlankAccount() {
-        assertThrows(BankingException.class, () -> accounts.getBalance("Missing1-"));
+        assertThrows(BankingException.class, () -> accounts.getBalance(UUID.randomUUID().toString()));
         assertThrows(BankingException.class, () -> accounts.getBalance(""));
         assertThrows(BankingException.class, () -> accounts.getBalance(null));
     }
