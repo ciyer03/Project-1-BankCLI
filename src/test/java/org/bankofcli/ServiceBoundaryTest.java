@@ -6,6 +6,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
 import org.bankofcli.exceptions.BankingException;
+import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.repository.*;
 import org.bankofcli.repository.memory.InMemoryBankRepository;
 import org.bankofcli.service.impl.*;
