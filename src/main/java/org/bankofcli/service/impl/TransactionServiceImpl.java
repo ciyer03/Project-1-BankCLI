@@ -77,6 +77,12 @@ public class TransactionServiceImpl implements TransactionService {
         }
         logger.debug("accountId \"{}\" exists. Proceeding ...", accountId);
 
+        logger.debug("Validating withdrawal amount ...");
+        if (amount == null || amount.signum() <= 0) {
+            logger.error("Withdrawal amount is either null or not greater than zero.");
+            throw new BankingException("Amount must be greater than zero.");
+        }
+
         logger.debug("Checking whether there's enough balance for a withdrawal...");
         if (this.accountRepository.getBalance(accountId).compareTo(amount) == -1) {
             logger.error("Insufficient balance to withdraw requested amount ${}.", 
@@ -124,6 +130,13 @@ public class TransactionServiceImpl implements TransactionService {
             logger.debug("Amount is either null or less than or equal to 0");
             throw new IllegalArgumentException(
                     "Transfer amount must be greater than zero.");
+        }
+        try {
+            amount = amount.setScale(2, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException e) {
+            logger.debug("Transfer amount contains a fraction of a cent.");
+            throw new IllegalArgumentException(
+                    "Transfer amount must contain no fractions of a cent.");
         }
 
         logger.debug("Checking whether source account ID \"{}\" and destination account ID \"{}\" both exist...",

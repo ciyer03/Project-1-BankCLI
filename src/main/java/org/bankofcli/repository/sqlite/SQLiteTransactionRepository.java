@@ -8,6 +8,8 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
 import java.math.RoundingMode;
 
 import org.bankofcli.exceptions.BankingException;
@@ -23,6 +25,15 @@ import org.bankofcli.service.impl.BankingRules;
 
 public class SQLiteTransactionRepository implements TransactionRepository {
     private static final Logger logger = LoggerFactory.getLogger(SQLiteTransactionRepository.class);
+    private final Supplier<Connection> connections;
+
+    public SQLiteTransactionRepository() {
+        this(SQLiteConnectionFactory::getConnection);
+    }
+
+    public SQLiteTransactionRepository(Supplier<Connection> connections) {
+        this.connections = Objects.requireNonNull(connections);
+    }
 
     /**
      * Deposits the specified amount into the specified account ID.
@@ -40,7 +51,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
         String updateBalance = "UPDATE accounts SET balance = ? WHERE accountId = ?";
         String insertTransaction = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = SQLiteConnectionFactory.getConnection()) {
+        try (Connection conn = connections.get()) {
             conn.setAutoCommit(false);
             try {
                 BigDecimal balance;
@@ -93,11 +104,11 @@ public class SQLiteTransactionRepository implements TransactionRepository {
      */
     @Override
     public void withdraw(String accountId, BigDecimal amount) {
-        String withdrawQuery = "UPDATE accounts SET balance = balance - ? WHERE account_id = ?";
+        String withdrawQuery = "UPDATE accounts SET balance = balance - ? WHERE accountId = ?";
         String transactionRecordQuery = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
 
         try (
-                Connection conn = SQLiteConnectionFactory.getConnection();
+                Connection conn = connections.get();
                 PreparedStatement psmt = conn.prepareStatement(withdrawQuery);
                 PreparedStatement psmtTransactionRecord = conn.prepareStatement(transactionRecordQuery);
             ) {
@@ -106,7 +117,6 @@ public class SQLiteTransactionRepository implements TransactionRepository {
 
             psmt.setBigDecimal(1, amount);
             psmt.setString(2, accountId);
-            psmt.setBigDecimal(3, amount);
 
             logger.debug("Attempting to withdraw ${} from account ID \"{}\"...",
                 amount.setScale(2), accountId);
@@ -163,12 +173,14 @@ public class SQLiteTransactionRepository implements TransactionRepository {
     public void transfer(String sourceAccountId, String destinationAccountId, BigDecimal amount) 
     throws InsufficientBalanceException {
         String transferAmountQuery = "UPDATE accounts SET balance = CASE WHEN accountId = ? THEN balance - ? WHEN accountId = ? THEN balance + ? END WHERE accountId IN (?, ?)";
-        
+        String insertTransaction = "INSERT INTO transactions (accountId, type, amount, timestamp) VALUES (?, ?, ?, ?)";
+
         try (
-                Connection conn = SQLiteConnectionFactory.getConnection();
+                Connection conn = connections.get();
                 PreparedStatement psmtTransferAmount = conn.prepareStatement(transferAmountQuery);
+                PreparedStatement psmtTransactionRecord = conn.prepareStatement(insertTransaction);
             ) {
-                
+
             conn.setAutoCommit(false);
 
             psmtTransferAmount.setString(1, sourceAccountId);
@@ -186,6 +198,31 @@ public class SQLiteTransactionRepository implements TransactionRepository {
                     amount.setScale(2), sourceAccountId, destinationAccountId);
                 throw new BankingException("Failed to transfer $" + amount.setScale(2) + " from source account ID \"" + sourceAccountId +
                  "\" to destination account ID \"" + destinationAccountId + "\".");
+            }
+
+            String currentDateTime = LocalDateTime.now().toString();
+            psmtTransactionRecord.setString(1, sourceAccountId);
+            psmtTransactionRecord.setString(2, TransactionType.TRANSFER_OUT.name());
+            psmtTransactionRecord.setBigDecimal(3, amount.setScale(2));
+            psmtTransactionRecord.setString(4, currentDateTime);
+            if (psmtTransactionRecord.executeUpdate() == 0) {
+                conn.rollback();
+                logger.error("Unable to add a TRANSFER_OUT transaction record for account ID {} for amount ${}.",
+                    sourceAccountId, amount.setScale(2));
+                throw new BankingException("Unable to add a transaction record for account ID " +
+                    sourceAccountId + " for amount $" + amount.setScale(2));
+            }
+
+            psmtTransactionRecord.setString(1, destinationAccountId);
+            psmtTransactionRecord.setString(2, TransactionType.TRANSFER_IN.name());
+            psmtTransactionRecord.setBigDecimal(3, amount.setScale(2));
+            psmtTransactionRecord.setString(4, currentDateTime);
+            if (psmtTransactionRecord.executeUpdate() == 0) {
+                conn.rollback();
+                logger.error("Unable to add a TRANSFER_IN transaction record for account ID {} for amount ${}.",
+                    destinationAccountId, amount.setScale(2));
+                throw new BankingException("Unable to add a transaction record for account ID " +
+                    destinationAccountId + " for amount $" + amount.setScale(2));
             }
 
             conn.commit();
@@ -211,7 +248,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
         List<Transaction> recentTransactions = new ArrayList<>(limit);
 
         try (
-                Connection conn = SQLiteConnectionFactory.getConnection();
+                Connection conn = connections.get();
                 PreparedStatement psmt = conn.prepareStatement(fetchTransactions);
             ) {
 
@@ -229,7 +266,7 @@ public class SQLiteTransactionRepository implements TransactionRepository {
                 TransactionType type = TransactionType.valueOf(rs.getString("type"));
                 logger.trace("Fetched transaction type: {}", type.toString());
 
-                BigDecimal amount = rs.getBigDecimal("amount");
+                BigDecimal amount = rs.getBigDecimal("amount").setScale(2, RoundingMode.UNNECESSARY);
                 logger.trace("Fetched amount: ${}", amount);
 
                 LocalDateTime timestamp = LocalDateTime.parse(rs.getString("timestamp"));
