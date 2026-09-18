@@ -17,6 +17,9 @@ import org.slf4j.LoggerFactory;
 
 public class TransactionServiceImpl implements TransactionService {
     private static final Logger logger = LoggerFactory.getLogger(TransactionServiceImpl.class);
+
+    private static final BigDecimal MAX_TRANSFER_AMOUNT = new BigDecimal("1000.00");
+
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
 
@@ -47,6 +50,7 @@ public class TransactionServiceImpl implements TransactionService {
             logger.error("Deposit amount is either null or not greater than zero.");
             throw new BankingException("Amount must be greater than zero.");
         }
+
         try {
             amount = amount.setScale(2, RoundingMode.UNNECESSARY);
         } catch (ArithmeticException e) {
@@ -61,10 +65,10 @@ public class TransactionServiceImpl implements TransactionService {
 
     /**
      * Withdraws the specified amount from the specified account ID.
-     * 
+     *
      * @param accountId The account ID to withdraw money from.
      * @param amount The amount of money to withdraw from the account.
-     * @throws InsufficientBalanceException If there is insufficient balance to withdraw 
+     * @throws InsufficientBalanceException If there is insufficient balance to withdraw
      * the requested money.
      * @throws AccountDoesNotExistException If there the specified accountId does not exist.
      */
@@ -85,30 +89,30 @@ public class TransactionServiceImpl implements TransactionService {
 
         logger.debug("Checking whether there's enough balance for a withdrawal...");
         if (this.accountRepository.getBalance(accountId).compareTo(amount) == -1) {
-            logger.error("Insufficient balance to withdraw requested amount ${}.", 
-                amount.setScale(2));
-            throw new InsufficientBalanceException("Insufficient balance to withdraw requested amount $" + 
-                amount.setScale(2));
+            logger.error("Insufficient balance to withdraw requested amount ${}.",
+                    amount.setScale(2));
+            throw new InsufficientBalanceException("Insufficient balance to withdraw requested amount $" +
+                    amount.setScale(2));
         }
         logger.debug("There's enough balance. Proceeding...");
 
-        logger.trace("Calling repository withdraw() method now with account ID \"{}\" and amount ${}.", 
-            accountId, amount.setScale(2));
+        logger.trace("Calling repository withdraw() method now with account ID \"{}\" and amount ${}.",
+                accountId, amount.setScale(2));
         this.transactionRepository.withdraw(accountId, amount);
     }
 
     /**
      * Transfer the specified amount from sourceAccountId to destinationAccountId.
-     * 
+     *
      * @param sourceAccountId The account from which to transfer the money from.
      * @param destinationAccountId The account to which to transfer the money to.
-     * @param amount The amoount of money to transfer.
-     * @throws InsufficientBalanceException If there is insufficient balance in the 
+     * @param amount The amount of money to transfer.
+     * @throws InsufficientBalanceException If there is insufficient balance in the
      * sourceAccountId account to transfer.
      */
     @Override
-    public void transfer(String sourceAccountId, String destinationAccountId, BigDecimal amount) 
-    throws InsufficientBalanceException {
+    public void transfer(String sourceAccountId, String destinationAccountId, BigDecimal amount)
+            throws InsufficientBalanceException {
 
         logger.debug("Checking whether either account ID is null or blank...");
         if (sourceAccountId == null || destinationAccountId == null ||
@@ -131,6 +135,7 @@ public class TransactionServiceImpl implements TransactionService {
             throw new IllegalArgumentException(
                     "Transfer amount must be greater than zero.");
         }
+
         try {
             amount = amount.setScale(2, RoundingMode.UNNECESSARY);
         } catch (ArithmeticException e) {
@@ -139,35 +144,57 @@ public class TransactionServiceImpl implements TransactionService {
                     "Transfer amount must contain no fractions of a cent.");
         }
 
+        // Check maximum transfer limit
+        logger.debug("Checking whether transfer amount exceeds the maximum limit...");
+        if (amount.compareTo(MAX_TRANSFER_AMOUNT) > 0) {
+            logger.error("Transfer amount ${} exceeds the maximum transfer limit of ${}.",
+                    amount, MAX_TRANSFER_AMOUNT);
+            throw new IllegalArgumentException(
+                    "Transfer amount cannot exceed $" + MAX_TRANSFER_AMOUNT);
+        }
+
         logger.debug("Checking whether source account ID \"{}\" and destination account ID \"{}\" both exist...",
-         sourceAccountId, destinationAccountId);
-        if (!(this.accountRepository.existsById(sourceAccountId)) || !(this.accountRepository.existsById(destinationAccountId))) {
+                sourceAccountId, destinationAccountId);
+
+        if (!(this.accountRepository.existsById(sourceAccountId))
+                || !(this.accountRepository.existsById(destinationAccountId))) {
             logger.error("Either the source account ID \"{}\" or destination account ID \"{}\", or both, don't exist.",
-             sourceAccountId, destinationAccountId);
-            throw new AccountDoesNotExistException("Either the source account ID \"" + sourceAccountId + 
-            "\" or destination account ID \"" + destinationAccountId + "\", or both, don't exist.");
+                    sourceAccountId, destinationAccountId);
+            throw new AccountDoesNotExistException("Either the source account ID \"" + sourceAccountId +
+                    "\" or destination account ID \"" + destinationAccountId + "\", or both, don't exist.");
         }
 
         logger.debug("Checking whether source account ID \"{}\" has enough balance for a transfer...", sourceAccountId);
+
         BigDecimal currentBalance = this.accountRepository.getBalance(sourceAccountId);
+
         logger.trace("Source account ID's \"{}\" balance: ${}.", sourceAccountId, currentBalance);
+
         if (currentBalance.compareTo(amount) == -1) {
             logger.error("Source account ID \"{}\" has insufficient balance for a transfer.", sourceAccountId);
             logger.trace("Current balance: ${}. Requested transfer amount: ${}.", currentBalance, amount);
-            throw new InsufficientBalanceException("Source account ID \"" + sourceAccountId + "\" has insufficient balance for a transfer of $" +
-                amount.setScale(2) + " to destination source ID \"" + destinationAccountId + "\".");
-        }
-        logger.debug("There is enough balance on source account ID \"{}\" for a transfer. Proceeding...", sourceAccountId);
 
-        logger.trace("Calling repository transfer() method now with source account ID \"{}\" and destination account ID \"{}\" for amount ${}...",
-            sourceAccountId, destinationAccountId, amount.setScale(2));
-        
+            throw new InsufficientBalanceException(
+                    "Source account ID \"" + sourceAccountId +
+                            "\" has insufficient balance for a transfer of $" +
+                            amount.setScale(2) +
+                            " to destination source ID \"" +
+                            destinationAccountId + "\".");
+        }
+
+        logger.debug("There is enough balance on source account ID \"{}\" for a transfer. Proceeding...",
+                sourceAccountId);
+
+        logger.trace(
+                "Calling repository transfer() method now with source account ID \"{}\" and destination account ID \"{}\" for amount ${}...",
+                sourceAccountId, destinationAccountId, amount.setScale(2));
+
         this.transactionRepository.transfer(sourceAccountId, destinationAccountId, amount);
     }
 
     /**
      * Returns the most recent "limit" number of transactions done by the account ID.
-     * 
+     *
      * @param accountId The account ID of the account to fetch transactions of.
      * @param limit The amount of transactions of fetch.
      * @return A list of "limit" number of {@link Transaction} objects.
@@ -175,17 +202,23 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public List<Transaction> getRecentTransactions(String accountId, int limit) {
         logger.debug("Checking whether accountId \"{}\" exists ...", accountId);
+
         if (!(this.accountRepository.existsById(accountId))) {
             logger.error("The specified account ID \"{}\" doesn't exist.", accountId);
-            throw new AccountDoesNotExistException("The specified account ID \"" + accountId + "\"" + " doesn't exist.");
+            throw new AccountDoesNotExistException(
+                    "The specified account ID \"" + accountId + "\"" + " doesn't exist.");
         }
+
         logger.debug("accountId \"{}\" exists. Proceeding ...", accountId);
 
         logger.debug("Checking whether the limit is valid...");
+
         if (limit <= 0) {
             logger.error("Invalid limit: \"{}\". Limit must be greater than 0.", limit);
-            throw new BankingException("Invalid limit: \"" + limit + "\". Limit must be greater than 0.");
+            throw new BankingException(
+                    "Invalid limit: \"" + limit + "\". Limit must be greater than 0.");
         }
+
         logger.debug("The limit is valid. Proceeding...");
 
         return this.transactionRepository.getRecentTransactions(accountId, limit);
