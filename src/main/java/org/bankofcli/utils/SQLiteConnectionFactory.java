@@ -58,7 +58,7 @@ public class SQLiteConnectionFactory {
                     Connection conn = SQLiteConnectionFactory.getConnection();
                     Statement st = conn.createStatement();
                 ) {
-
+                migrateAccountIds(conn);
                 for (String sql : script.split(";")) {
                     if (!(sql.trim().isEmpty())) {
                         st.execute(sql);
@@ -75,6 +75,47 @@ public class SQLiteConnectionFactory {
             
             throw new IllegalStateException("Unable to either close the database script input stream " + 
             "or read from the database initialization script.", e);
+        }
+    }
+
+    /** Updates the original account ID constraint without changing saved IDs or transactions. */
+    public static void migrateAccountIds(Connection conn) throws SQLException {
+        String tableSql;
+        try (Statement statement = conn.createStatement();
+             var result = statement.executeQuery(
+                     "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'")) {
+            if (!result.next()) return;
+            tableSql = result.getString(1);
+        }
+        String updatedSql = tableSql.replaceAll("(?i)LENGTH\\s*\\(accountId\\)\\s*=\\s*36",
+                "LENGTH(accountId) IN (22, 36)");
+        if (updatedSql.equals(tableSql)) return;
+        if (!conn.getAutoCommit()) throw new SQLException("Account migration requires auto-commit mode.");
+        try (Statement statement = conn.createStatement()) {
+            boolean foreignKeys;
+            try (var result = statement.executeQuery("PRAGMA foreign_keys")) {
+                foreignKeys = result.getInt(1) != 0;
+            }
+            statement.execute("PRAGMA foreign_keys = OFF");
+            try {
+                conn.setAutoCommit(false);
+                statement.execute(updatedSql.replaceFirst("(?i)CREATE TABLE\\s+\"?accounts\"?",
+                        "CREATE TABLE accounts_id_migration"));
+                statement.execute("INSERT INTO accounts_id_migration (accountId, firstName, lastName, PIN, balance) "
+                        + "SELECT accountId, firstName, lastName, PIN, balance FROM accounts");
+                statement.execute("DROP TABLE accounts");
+                statement.execute("ALTER TABLE accounts_id_migration RENAME TO accounts");
+                try (var result = statement.executeQuery("PRAGMA foreign_key_check")) {
+                    if (result.next()) throw new SQLException("Account migration failed foreign key validation.");
+                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+                statement.execute("PRAGMA foreign_keys = " + (foreignKeys ? "ON" : "OFF"));
+            }
         }
     }
 

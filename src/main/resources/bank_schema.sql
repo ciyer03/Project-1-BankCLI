@@ -2,7 +2,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS accounts (
     accountId TEXT PRIMARY KEY CHECK (
-        LENGTH(accountId) = 36
+        LENGTH(accountId) IN (22, 36)
     ),
     firstName TEXT NOT NULL,
     lastName TEXT NOT NULL,
