@@ -67,7 +67,7 @@ class BankApplicationTest {
 
     @Test
     void successfulLoginEnablesBankingAndLogoutClearsSession() {
-        String output = run("2\nAlice1-\n1234\n4\n20.50\n5\n0.50\n3\n7\n10\n9\n3\n8\n");
+        String output = run("2\nAlice1-\n1234\n4\n20.50\n5\n1234\n0.50\n3\n7\n10\n9\n3\n8\n");
         assertTrue(output.contains("Login successful."));
         assertTrue(output.contains("Your Balance is: $20.00"));
         assertTrue(output.contains("Transaction Type: WITHDRAW"));
@@ -121,7 +121,7 @@ class BankApplicationTest {
 
     @Test
     void withdrawThroughMenuRejectsInsufficientBalanceAndKeepsBalanceUnchanged() {
-        String output = run("2\nAlice1-\n1234\n4\n10\n5\n20\n3\n8\n");
+        String output = run("2\nAlice1-\n1234\n4\n10\n5\n1234\n20\n3\n8\n");
         assertTrue(output.contains("Insufficient balance"));
         assertTrue(output.contains("Your Balance is: $10.00"));
     }
@@ -129,7 +129,7 @@ class BankApplicationTest {
     @Test
     void transferThroughMenuRejectsMissingDestinationAccountAndKeepsBalanceUnchanged() {
         String output = run("2\nAlice1-\n1234\n4\n10\n6\nMissing1-\n5\n3\n8\n");
-        assertTrue(output.contains("don't exist"));
+        assertTrue(output.contains("does not exist"));
         assertTrue(output.contains("Your Balance is: $10.00"));
     }
 
