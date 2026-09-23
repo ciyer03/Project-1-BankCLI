@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.bankofcli.exceptions.AccountDoesNotExistException;
+import org.bankofcli.exceptions.IncorrectPINException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.Account;
 import org.bankofcli.model.Transaction;
@@ -64,7 +65,7 @@ class TransactionServiceImplSqliteTest {
     @Test
     void withdrawReducesBalanceAndRecordsTransaction() {
         transactions.deposit(aliceId, new BigDecimal("20.00"));
-        assertDoesNotThrow(() -> transactions.withdraw(aliceId, new BigDecimal("5.00")));
+        assertDoesNotThrow(() -> transactions.withdraw(aliceId, 1234, new BigDecimal("5.00")));
         assertEquals(new BigDecimal("15.00"), accounts.getBalance(aliceId));
         Transaction recorded = transactions.getRecentTransactions(aliceId, 1).getFirst();
         assertEquals(TransactionType.WITHDRAW, recorded.getType());
@@ -74,7 +75,14 @@ class TransactionServiceImplSqliteTest {
     @Test
     void withdrawRejectsInsufficientBalance() {
         transactions.deposit(aliceId, BigDecimal.TEN);
-        assertThrows(InsufficientBalanceException.class, () -> transactions.withdraw(aliceId, new BigDecimal("10.01")));
+        assertThrows(InsufficientBalanceException.class, () -> transactions.withdraw(aliceId, 1234, new BigDecimal("10.01")));
+        assertEquals(new BigDecimal("10.00"), accounts.getBalance(aliceId));
+    }
+
+    @Test
+    void withdrawRejectsIncorrectPin() {
+        transactions.deposit(aliceId, BigDecimal.TEN);
+        assertThrows(IncorrectPINException.class, () -> transactions.withdraw(aliceId, 9999, BigDecimal.ONE));
         assertEquals(new BigDecimal("10.00"), accounts.getBalance(aliceId));
     }
 

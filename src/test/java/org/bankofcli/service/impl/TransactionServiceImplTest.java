@@ -7,8 +7,11 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
+import java.util.Optional;
+
 import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.exceptions.BankingException;
+import org.bankofcli.exceptions.IncorrectPINException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.model.Account;
 import org.bankofcli.model.Transaction;
@@ -72,10 +75,11 @@ class TransactionServiceImplTest {
         TransactionRepository mockedRepository = mock(TransactionRepository.class);
         when(mockedAccounts.existsById("Alice1-")).thenReturn(true);
         when(mockedAccounts.existsById("Bobby2#")).thenReturn(true);
+        when(mockedAccounts.findById("Alice1-")).thenReturn(Optional.of(new Account("", "", "Alice1-", 1234)));
         when(mockedAccounts.getBalance("Alice1-")).thenReturn(BigDecimal.TEN);
         TransactionService service = new TransactionServiceImpl(mockedAccounts, mockedRepository);
         assertThrows(BankingException.class, () -> service.deposit("Alice1-", BigDecimal.ZERO));
-        assertThrows(InsufficientBalanceException.class, () -> service.withdraw("Alice1-", new BigDecimal("11")));
+        assertThrows(InsufficientBalanceException.class, () -> service.withdraw("Alice1-", 1234, new BigDecimal("11")));
         assertThrows(InsufficientBalanceException.class, () -> service.transfer("Alice1-", "Bobby2#", new BigDecimal("11")));
         assertThrows(IllegalArgumentException.class, () -> service.transfer("Alice1-", "Alice1-", BigDecimal.ONE));
         verifyNoInteractions(mockedRepository);
@@ -128,7 +132,7 @@ class TransactionServiceImplTest {
     @Test
     void withdrawReducesBalanceAndRecordsTransaction() {
         transactions.deposit("Alice1-", new BigDecimal("20.00"));
-        assertDoesNotThrow(() -> transactions.withdraw("Alice1-", new BigDecimal("5.00")));
+        assertDoesNotThrow(() -> transactions.withdraw("Alice1-", 1234, new BigDecimal("5.00")));
         assertEquals(new BigDecimal("15.00"), accounts.getBalance("Alice1-"));
         Transaction recorded = transactions.getRecentTransactions("Alice1-", 1).getFirst();
         assertEquals(TransactionType.WITHDRAW, recorded.getType());
@@ -138,14 +142,14 @@ class TransactionServiceImplTest {
     @Test
     void withdrawOfExactBalanceLeavesZero() {
         transactions.deposit("Alice1-", new BigDecimal("20.00"));
-        assertDoesNotThrow(() -> transactions.withdraw("Alice1-", new BigDecimal("20.00")));
+        assertDoesNotThrow(() -> transactions.withdraw("Alice1-", 1234, new BigDecimal("20.00")));
         assertEquals(new BigDecimal("0.00"), accounts.getBalance("Alice1-"));
     }
 
     @Test
     void withdrawRejectsInsufficientBalance() {
         transactions.deposit("Alice1-", BigDecimal.TEN);
-        assertThrows(InsufficientBalanceException.class, () -> transactions.withdraw("Alice1-", new BigDecimal("10.01")));
+        assertThrows(InsufficientBalanceException.class, () -> transactions.withdraw("Alice1-", 1234, new BigDecimal("10.01")));
         assertEquals(new BigDecimal("10.00"), accounts.getBalance("Alice1-"));
         assertTrue(transactions.getRecentTransactions("Alice1-", 10).stream()
                 .noneMatch(t -> t.getType() == TransactionType.WITHDRAW));
@@ -153,14 +157,21 @@ class TransactionServiceImplTest {
 
     @Test
     void withdrawRejectsMissingAccount() {
-        assertThrows(AccountDoesNotExistException.class, () -> transactions.withdraw("Missing1-", BigDecimal.ONE));
+        assertThrows(AccountDoesNotExistException.class, () -> transactions.withdraw("Missing1-", 0, BigDecimal.ONE));
+    }
+
+    @Test
+    void withdrawRejectsIncorrectPin() {
+        transactions.deposit("Alice1-", BigDecimal.TEN);
+        assertThrows(IncorrectPINException.class, () -> transactions.withdraw("Alice1-", 9999, BigDecimal.ONE));
+        assertEquals(new BigDecimal("10.00"), accounts.getBalance("Alice1-"));
     }
 
     @Test
     void withdrawRejectsNullAndNonPositiveAmounts() {
         transactions.deposit("Alice1-", BigDecimal.TEN);
         for (BigDecimal amount : new BigDecimal[] {null, BigDecimal.ZERO, new BigDecimal("-1")}) {
-            assertThrows(BankingException.class, () -> transactions.withdraw("Alice1-", amount));
+            assertThrows(BankingException.class, () -> transactions.withdraw("Alice1-", 1234, amount));
         }
         assertEquals(new BigDecimal("10.00"), accounts.getBalance("Alice1-"));
     }
