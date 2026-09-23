@@ -4,10 +4,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.exceptions.BankingException;
+import org.bankofcli.exceptions.IncorrectPINException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
+import org.bankofcli.model.Account;
 import org.bankofcli.model.Transaction;
 import org.bankofcli.repository.AccountRepository;
 import org.bankofcli.repository.TransactionRepository;
@@ -67,19 +70,31 @@ public class TransactionServiceImpl implements TransactionService {
      * Withdraws the specified amount from the specified account ID.
      *
      * @param accountId The account ID to withdraw money from.
+     * @param PIN The PIN entered by the user.
      * @param amount The amount of money to withdraw from the account.
+     * 
      * @throws InsufficientBalanceException If there is insufficient balance to withdraw
      * the requested money.
      * @throws AccountDoesNotExistException If there the specified accountId does not exist.
+     * @throws IncorrectPINException If the supplied PIN is wrong.
      */
     @Override
-    public void withdraw(String accountId, BigDecimal amount) throws InsufficientBalanceException {
+    public void withdraw(String accountId, int PIN, BigDecimal amount
+    ) throws InsufficientBalanceException {
         logger.debug("Checking whether accountId \"{}\" exists ...", accountId);
-        if (!(this.accountRepository.existsById(accountId))) {
+        Optional<Account> account = this.accountRepository.findById(accountId);
+        if (account.isEmpty()) {
             logger.error("The specified account ID \"{}\" doesn't exist.", accountId);
             throw new AccountDoesNotExistException("The specified account ID \"" + accountId + "\"" + " doesn't exist.");
         }
         logger.debug("accountId \"{}\" exists. Proceeding ...", accountId);
+
+        logger.debug("Checking whether the entered PIN is valid...");
+        if (!(account.get().getPIN() == PIN)) {
+            logger.error("Incorrect PIN entered for account ID \"{}\"", accountId);
+            throw new IncorrectPINException(accountId);
+        }
+        logger.debug("The entered PIN is valid. Proceeding...");
 
         logger.debug("Validating withdrawal amount ...");
         if (amount == null || amount.signum() <= 0) {

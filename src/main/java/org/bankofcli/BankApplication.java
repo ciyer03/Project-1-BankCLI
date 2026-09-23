@@ -7,6 +7,7 @@ import java.util.Scanner;
 
 import org.bankofcli.exceptions.AccountDoesNotExistException;
 import org.bankofcli.exceptions.BankingException;
+import org.bankofcli.exceptions.IncorrectPINException;
 import org.bankofcli.exceptions.InsufficientBalanceException;
 import org.bankofcli.repository.sqlite.SQLiteAccountRepository;
 import org.bankofcli.repository.sqlite.SQLiteTransactionRepository;
@@ -83,7 +84,7 @@ public class BankApplication {
                             out.println("Deposit successful.");
                             break;
                         case "5":
-                            transactions.withdraw(accountId, readAmount());
+                            this.transactions.withdraw(accountId, readPin(), readAmount());
                             out.println("Withdrawal successful.");
                             break;
                         case "6":
@@ -108,12 +109,16 @@ public class BankApplication {
                         default:
                             out.println("Invalid option. Please choose an option shown in the menu.");
                     }
-                } catch (BankingException | AccountDoesNotExistException e) {
+                } catch (BankingException e) {
                     log.warn("Banking request rejected.");
                     out.println(e.getMessage());
+                } catch (AccountDoesNotExistException e) {
+                    out.println("The entered account does not exist.");
                 } catch (InsufficientBalanceException e) {
                     log.warn("Insufficient balance for requested operation.");
                     out.println(e.getMessage());
+                } catch (IncorrectPINException e) {
+                    out.println("The PIN you entered is incorrect.");
                 } catch (RuntimeException e) {
                     if (e instanceof NoSuchElementException) throw e;
                     // Do not log exception messages: repository/input errors may contain secrets.
