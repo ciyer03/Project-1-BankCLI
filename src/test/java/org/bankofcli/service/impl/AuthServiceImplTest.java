@@ -44,10 +44,14 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void registrationGeneratesUniqueUuidIds() {
+    void registrationGeneratesUniqueCompactUuidIds() {
         Account first = auth.register("Alice", "Smith", 1234);
         Account second = auth.register("Alice", "Smith", 1234);
-        assertEquals(4, UUID.fromString(first.getAccountId()).version());
+        assertTrue(first.getAccountId().matches("[A-Za-z0-9_-]{22}"));
+        var bytes = java.nio.ByteBuffer.wrap(java.util.Base64.getUrlDecoder().decode(first.getAccountId()));
+        UUID uuid = new UUID(bytes.getLong(), bytes.getLong());
+        assertEquals(4, uuid.version());
+        assertEquals(2, uuid.variant());
         assertNotEquals(first.getAccountId(), second.getAccountId());
         assertEquals(first.getAccountId(), auth.login(first.getAccountId(), 1234).getAccountId());
         assertEquals(new BigDecimal("0.00"), accounts.getBalance(first.getAccountId()));

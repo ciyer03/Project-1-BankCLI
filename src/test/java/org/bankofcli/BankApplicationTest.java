@@ -37,9 +37,9 @@ class BankApplicationTest {
         for (String pin : new String[] {"0000", "0001", "0123", "0999"}) {
             String output = run("1\nAlice\nSmith\n" + pin + "\n8\n");
             assertTrue(output.contains("Registration successful."), pin);
-            var match = java.util.regex.Pattern.compile("Your Account ID: ([0-9a-f-]{36})").matcher(output);
+            var match = java.util.regex.Pattern.compile("Your Account ID: ([A-Za-z0-9_-]{22})").matcher(output);
             assertTrue(match.find());
-            assertEquals(4, java.util.UUID.fromString(match.group(1)).version());
+            assertEquals(22, match.group(1).length());
             assertFalse(output.contains("Choose Account ID"));
         }
     }

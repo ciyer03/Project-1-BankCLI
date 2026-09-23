@@ -1,5 +1,7 @@
 package org.bankofcli.service.impl;
 
+import java.nio.ByteBuffer;
+import java.util.Base64;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -26,7 +28,12 @@ public class AuthServiceImpl implements AuthService {
         if (pin < 0 || pin > 9999) {
             throw new BankingException("PIN must be four digits, from 0000 to 9999.");
         }
-        String accountId = UUID.randomUUID().toString();
+        UUID uuid = UUID.randomUUID();
+        // Preserve all UUID bits in a 22-character, URL-safe ID without padding.
+        byte[] bytes = ByteBuffer.allocate(16)
+                .putLong(uuid.getMostSignificantBits())
+                .putLong(uuid.getLeastSignificantBits()).array();
+        String accountId = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Account account = accounts.create(new Account(firstName.strip(), lastName.strip(), accountId, pin));
         log.info("Registration succeeded!");
         return account;

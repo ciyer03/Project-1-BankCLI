@@ -43,7 +43,7 @@ class SQLiteAuthenticationTest {
         for (int pin : new int[] {0, 1, 123, 999, 9999}) {
             var account = new AuthServiceImpl(new SQLiteAccountRepository(connections)).register("Alice", "Smith", pin);
             String id = account.getAccountId();
-            assertEquals(4, UUID.fromString(id).version());
+            assertTrue(id.matches("[A-Za-z0-9_-]{22}"));
             // Reinitialize as on application startup, then use a new repository and connection.
             database();
             var reopened = new SQLiteAccountRepository(connections);
@@ -62,6 +62,52 @@ class SQLiteAuthenticationTest {
     }
 
     @Test
+    void migratesOriginalSchemaAndPreservesAccountsAndTransactions() throws Exception {
+        String url = "jdbc:sqlite:" + directory.resolve("bank.db");
+        String id = UUID.randomUUID().toString();
+        try (var input = BankApplication.class.getResourceAsStream("/bank_schema.sql");
+             var connection = DriverManager.getConnection(url);
+             var statement = connection.createStatement()) {
+            String original = new String(input.readAllBytes(), StandardCharsets.UTF_8)
+                    .replace("LENGTH(accountId) IN (22, 36)", "LENGTH(accountId) = 36");
+            for (String sql : original.split(";")) {
+                if (!sql.isBlank()) statement.execute(sql);
+            }
+            statement.execute("INSERT INTO accounts VALUES ('" + id + "', 'Alice', 'Smith', '0001', 25)");
+            statement.execute("INSERT INTO transactions (accountId, type, amount, timestamp) VALUES ('"
+                    + id + "', 'DEPOSIT', 25, '2026-09-23T10:00:00')");
+            org.bankofcli.utils.SQLiteConnectionFactory.migrateAccountIds(connection);
+            org.bankofcli.utils.SQLiteConnectionFactory.migrateAccountIds(connection);
+            try (var result = statement.executeQuery("PRAGMA foreign_keys")) {
+                assertTrue(result.next());
+                assertEquals(1, result.getInt(1));
+            }
+            try (var result = statement.executeQuery("SELECT accountId, amount FROM transactions")) {
+                assertTrue(result.next());
+                assertEquals(id, result.getString(1));
+                assertEquals(25, result.getInt(2));
+            }
+        }
+        var repository = new SQLiteAccountRepository(database());
+        var auth = new AuthServiceImpl(repository);
+        assertEquals(id, auth.login(id, 1).getAccountId());
+        assertEquals(new java.math.BigDecimal("25.00"), repository.getBalance(id));
+        String newId = auth.register("Bob", "Jones", 1234).getAccountId();
+        assertEquals(22, newId.length());
+        assertEquals(newId, auth.login(newId, 1234).getAccountId());
+    }
+
+    @Test
+    void existingUuidAccountCanStillLogin() throws Exception {
+        var connections = database();
+        String id = UUID.randomUUID().toString();
+        new SQLiteAccountRepository(connections).create(
+                new org.bankofcli.model.Account("Alice", "Smith", id, 1234));
+        var reopened = new AuthServiceImpl(new SQLiteAccountRepository(connections));
+        assertEquals(id, reopened.login(id, 1234).getAccountId());
+    }
+
+    @Test
     void cliCanLoginToAccountCreatedInAnEarlierRun() throws Exception {
         var connections = database();
         var output = new java.io.ByteArrayOutputStream();
@@ -69,7 +115,7 @@ class SQLiteAuthenticationTest {
         new BankApplication(new AuthServiceImpl(repository),
                 new org.bankofcli.service.impl.AccountServiceImpl(repository), null,
                 new java.util.Scanner("1\nAlice\nSmith\n0001\n8\n"), new java.io.PrintStream(output)).run();
-        var match = java.util.regex.Pattern.compile("Your Account ID: ([0-9a-f-]{36})")
+        var match = java.util.regex.Pattern.compile("Your Account ID: ([A-Za-z0-9_-]{22})")
                 .matcher(output.toString(StandardCharsets.UTF_8));
         assertTrue(match.find());
         String id = match.group(1);
