@@ -19,11 +19,12 @@ public interface TransactionService {
      * Withdraws the specified amount from the specified account ID.
      * 
      * @param accountId The account ID to withdraw money from.
+     * @param PIN The PIN entered by the user.
      * @param amount The amount of money to withdraw from the account.
      * @throws InsufficientBalanceException If there is insufficient balance to withdraw 
      * the requested money.
      */
-    void withdraw(String accountId, BigDecimal amount) throws InsufficientBalanceException;
+    void withdraw(String accountId, int PIN, BigDecimal amount) throws InsufficientBalanceException;
 
     /**
      * Transfer the specified amount from sourceAccountId to destinationAccountId.
