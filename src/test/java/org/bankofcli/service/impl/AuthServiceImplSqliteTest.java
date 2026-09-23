@@ -34,9 +34,9 @@ class AuthServiceImplSqliteTest {
     }
 
     @Test
-    void registrationPersistsAccountWithGeneratedUuid() {
+    void registrationPersistsAccountWithCompactUuid() {
         Account registered = auth.register("Alice", "Smith", 1234);
-        assertEquals(4, UUID.fromString(registered.getAccountId()).version());
+        assertTrue(registered.getAccountId().matches("[A-Za-z0-9_-]{22}"));
         assertEquals(new BigDecimal("0.00"), accounts.getBalance(registered.getAccountId()));
     }
 
